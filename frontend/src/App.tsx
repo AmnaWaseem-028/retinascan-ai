@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import Login from './pages/Login'
 import Layout from './components/Layout'
+import Upload from './pages/Upload'
 
 function App() {
   return (
@@ -8,7 +9,7 @@ function App() {
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route element={<Layout />}>
-          <Route path="/upload" element={<div className="p-8">Upload page — coming next</div>} />
+          <Route path="/upload" element={<Upload />} />
           <Route path="/dashboard" element={<div className="p-8">Dashboard page — coming next</div>} />
           <Route path="/admin" element={<div className="p-8">Admin page — coming next</div>} />
         </Route>
