@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { supabase } from '../supabaseClient'
 
 interface Screening {
@@ -18,13 +19,10 @@ const gradeLabels: Record<number, string> = {
 }
 
 function Dashboard() {
+  const navigate = useNavigate()
   const [screenings, setScreenings] = useState<Screening[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-
-  useEffect(() => {
-    fetchScreenings()
-  }, [])
 
   const fetchScreenings = async () => {
     setLoading(true)
@@ -40,6 +38,10 @@ function Dashboard() {
     }
     setLoading(false)
   }
+
+  useEffect(() => {
+    fetchScreenings()
+  }, [])
 
   return (
     <div className="p-8">
@@ -68,7 +70,11 @@ function Dashboard() {
             </thead>
             <tbody>
               {screenings.map((s) => (
-                <tr key={s.id} className="border-b border-[#D3D1C7] last:border-0 hover:bg-[#F7F5F1] cursor-pointer">
+                <tr
+                  key={s.id}
+                  onClick={() => navigate(`/result/${s.id}`)}
+                  className="border-b border-[#D3D1C7] last:border-0 hover:bg-[#F7F5F1] cursor-pointer"
+                >
                   <td className="px-5 py-3 text-[#1B2421]">
                     {new Date(s.created_at).toLocaleDateString()}
                   </td>

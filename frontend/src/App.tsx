@@ -3,6 +3,7 @@ import Login from './pages/Login'
 import Layout from './components/Layout'
 import Upload from './pages/Upload'
 import Dashboard from './pages/Dashboard'
+import Result from './pages/Result'
 
 function App() {
   return (
@@ -12,6 +13,7 @@ function App() {
         <Route element={<Layout />}>
           <Route path="/upload" element={<Upload />} />
           <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/result/:id" element={<Result />} />
           <Route path="/admin" element={<div className="p-8">Admin page — coming next</div>} />
         </Route>
         <Route path="*" element={<Navigate to="/login" />} />
