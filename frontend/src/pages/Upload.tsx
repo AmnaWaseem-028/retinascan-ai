@@ -43,6 +43,16 @@ function Upload() {
       return
     }
 
+    const { error: dbError } = await supabase
+      .from('screenings')
+      .insert({ user_id: user.id, image_url: filePath })
+
+    if (dbError) {
+      setError(dbError.message)
+      setUploading(false)
+      return
+    }
+
     setMessage('Image uploaded. Screening will begin shortly.')
     setUploading(false)
     setFile(null)
