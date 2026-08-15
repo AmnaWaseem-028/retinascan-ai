@@ -1,6 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../supabaseClient'
+import jsPDF from 'jspdf'
+import html2canvas from 'html2canvas'
 
 interface Screening {
   id: string
@@ -27,10 +29,8 @@ function Result() {
   const [imageUrl, setImageUrl] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-
-  useEffect(() => {
-    fetchScreening()
-  }, [id])
+  const contentRef = useRef<HTMLDivElement>(null)
+  const [exporting, setExporting] = useState(false)
 
   const fetchScreening = async () => {
     setLoading(true)
@@ -58,18 +58,46 @@ function Result() {
     setLoading(false)
   }
 
+  useEffect(() => {
+    fetchScreening()
+  }, [id])
+
+  const handleExportPDF = async () => {
+    if (!contentRef.current) return
+    setExporting(true)
+    const canvas = await html2canvas(contentRef.current, { backgroundColor: '#F7F5F1' })
+    const imgData = canvas.toDataURL('image/png')
+    const pdf = new jsPDF('p', 'mm', 'a4')
+    const pdfWidth = pdf.internal.pageSize.getWidth()
+    const pdfHeight = (canvas.height * pdfWidth) / canvas.width
+    pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight)
+    pdf.save(`screening-report-${screening?.id}.pdf`)
+    setExporting(false)
+  }
+
   if (loading) return <div className="p-8 text-sm text-[#888780]">Loading...</div>
   if (error) return <div className="p-8 text-sm text-[#C1544C]">{error}</div>
   if (!screening) return null
 
   return (
-    <div className="p-8 max-w-3xl">
+    <div className="p-8 max-w-3xl" ref={contentRef}>
       <button
         onClick={() => navigate('/dashboard')}
         className="text-sm text-[#5F5E5A] hover:text-[#0F3D3E] mb-4"
       >
         ← Back to dashboard
       </button>
+
+      <div className="flex items-center justify-between mb-4">
+        <div></div>
+        <button
+          onClick={handleExportPDF}
+          disabled={exporting}
+          className="px-4 py-2 rounded-lg border border-[#D3D1C7] text-sm font-medium text-[#1B2421] hover:bg-white transition-colors disabled:opacity-50"
+        >
+          {exporting ? 'Generating PDF...' : 'Download PDF'}
+        </button>
+      </div>
 
       <h1 className="text-2xl font-semibold text-[#1B2421] mb-1">Screening result</h1>
       <p className="text-[#5F5E5A] text-sm mb-8">
