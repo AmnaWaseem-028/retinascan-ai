@@ -1,8 +1,14 @@
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import Login from './pages/Login'
+
 function App() {
   return (
-    <h1 className="text-4xl font-bold text-blue-600">
-      RetinaScan AI
-    </h1>
+    <BrowserRouter>
+      <Routes>
+        <Route path="/login" element={<Login />} />
+        <Route path="*" element={<Navigate to="/login" />} />
+      </Routes>
+    </BrowserRouter>
   )
 }
 
