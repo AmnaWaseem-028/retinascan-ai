@@ -66,9 +66,10 @@ function Upload() {
         Upload a fundus image to get an AI-assisted diabetic retinopathy grade.
       </p>
 
-      <div className="bg-white rounded-xl border border-[#D3D1C7] p-8">
+      <div className="bg-white rounded-xl border border-[#D3D1C7] p-8 shadow-sm">
         {!preview ? (
           <label className="flex flex-col items-center justify-center border-2 border-dashed border-[#D3D1C7] rounded-lg py-16 cursor-pointer hover:border-[#0F3D3E] transition-colors">
+            <i className="ti ti-cloud-upload text-[#888780] mb-3" style={{ fontSize: '32px' }}></i>
             <span className="text-sm font-medium text-[#1B2421] mb-1">Click to select a fundus image</span>
             <span className="text-xs text-[#888780]">JPG or PNG</span>
             <input type="file" accept="image/*" onChange={handleFileChange} className="hidden" />

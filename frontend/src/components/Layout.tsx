@@ -1,5 +1,6 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { supabase } from '../supabaseClient'
+import Logo from './Logo'
 
 function Layout() {
   const navigate = useNavigate()
@@ -10,9 +11,9 @@ function Layout() {
   }
 
   const navItems = [
-    { to: '/upload', label: 'Upload screening' },
-    { to: '/dashboard', label: 'Dashboard' },
-    { to: '/admin', label: 'Admin panel' },
+    { to: '/upload', label: 'Upload screening', icon: 'ti-upload' },
+    { to: '/dashboard', label: 'Dashboard', icon: 'ti-layout-dashboard' },
+    { to: '/admin', label: 'Admin panel', icon: 'ti-shield-lock' },
   ]
 
   return (
@@ -20,7 +21,7 @@ function Layout() {
       <aside className="w-64 bg-[#0F3D3E] flex flex-col justify-between py-6 px-4">
         <div>
           <div className="flex items-center gap-2 px-2 mb-8">
-            <div className="w-7 h-7 rounded-full border-2 border-[#E8A33D]"></div>
+           <Logo size={30} />
             <span className="text-white font-semibold text-base">RetinaScan AI</span>
           </div>
 
@@ -30,13 +31,14 @@ function Layout() {
                 key={item.to}
                 to={item.to}
                 className={({ isActive }) =>
-                  `block px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                  `flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                     isActive
                       ? 'bg-[#1A5654] text-white'
                       : 'text-[#9FC9C4] hover:bg-[#12474A] hover:text-white'
                   }`
                 }
               >
+                <i className={`ti ${item.icon}`} style={{ fontSize: '18px' }}></i>
                 {item.label}
               </NavLink>
             ))}
@@ -45,8 +47,9 @@ function Layout() {
 
         <button
           onClick={handleLogout}
-          className="px-3 py-2.5 rounded-lg text-sm font-medium text-[#9FC9C4] hover:bg-[#12474A] hover:text-white transition-colors text-left"
+          className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium text-[#9FC9C4] hover:bg-[#12474A] hover:text-white transition-colors text-left"
         >
+          <i className="ti ti-logout" style={{ fontSize: '18px' }}></i>
           Log out
         </button>
       </aside>

@@ -5,11 +5,13 @@ import Upload from './pages/Upload'
 import Dashboard from './pages/Dashboard'
 import Result from './pages/Result'
 import Admin from './pages/Admin'
+import Landing from './pages/Landing'
 
 function App() {
   return (
     <BrowserRouter>
       <Routes>
+        <Route path="/" element={<Landing />} />
         <Route path="/login" element={<Login />} />
         <Route element={<Layout />}>
           <Route path="/upload" element={<Upload />} />
@@ -17,7 +19,7 @@ function App() {
           <Route path="/result/:id" element={<Result />} />
           <Route path="/admin" element={<Admin />} />
         </Route>
-        <Route path="*" element={<Navigate to="/login" />} />
+        <Route path="*" element={<Navigate to="/" />} />
       </Routes>
     </BrowserRouter>
   )

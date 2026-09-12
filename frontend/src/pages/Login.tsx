@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { supabase } from '../supabaseClient'
+import Logo from '../components/Logo'
 
 function Login() {
   const [isSignUp, setIsSignUp] = useState(false)
@@ -29,7 +30,7 @@ function Login() {
       <div className="hidden lg:flex lg:w-1/2 bg-[#0F3D3E] flex-col justify-between p-12 relative overflow-hidden">
         <div className="relative z-10">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-full border-2 border-[#E8A33D]"></div>
+            <Logo size={32} />
             <span className="text-white font-semibold text-lg tracking-tight">RetinaScan AI</span>
           </div>
         </div>
@@ -58,11 +59,11 @@ function Login() {
       <div className="w-full lg:w-1/2 flex items-center justify-center px-6 py-12 bg-[#F7F5F1]">
         <div className="w-full max-w-sm">
           <div className="lg:hidden mb-8 flex items-center gap-2">
-            <div className="w-7 h-7 rounded-full border-2 border-[#E8A33D]"></div>
+            <Logo size={28} />
             <span className="font-semibold text-lg text-[#0F3D3E]">RetinaScan AI</span>
           </div>
 
-          <h2 className="text-2xl font-semibold text-[#1B2421] mb-1">
+          <h2 className="text-3xl font-bold text-[#1B2421] mb-1 tracking-tight">
             {isSignUp ? 'Create your account' : 'Welcome back'}
           </h2>
           <p className="text-[#5F5E5A] text-sm mb-8">
