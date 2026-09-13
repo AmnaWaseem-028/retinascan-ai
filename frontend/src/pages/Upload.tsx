@@ -43,9 +43,11 @@ function Upload() {
       return
     }
 
-    const { error: dbError } = await supabase
+    const { data: insertedRow, error: dbError } = await supabase
       .from('screenings')
       .insert({ user_id: user.id, image_url: filePath })
+      .select()
+      .single()
 
     if (dbError) {
       setError(dbError.message)
@@ -53,7 +55,30 @@ function Upload() {
       return
     }
 
-    setMessage('Image uploaded. Screening will begin shortly.')
+    setMessage('Image uploaded. Processing...')
+
+    try {
+      const response = await fetch('http://127.0.0.1:8000/process-screening', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          screening_id: insertedRow.id,
+          image_path: filePath,
+        }),
+      })
+
+      if (!response.ok) {
+        const errData = await response.json()
+        setError(errData.detail?.quality_issues?.join(', ') || 'Processing failed.')
+        setUploading(false)
+        return
+      }
+
+      setMessage('Screening complete! Check your dashboard for results.')
+    } catch {
+      setMessage('Image uploaded, but processing could not start. It will remain pending.')
+    }
+
     setUploading(false)
     setFile(null)
     setPreview(null)
@@ -83,7 +108,7 @@ function Upload() {
                 disabled={uploading}
                 className="flex-1 py-2.5 rounded-lg bg-[#0F3D3E] text-white text-sm font-medium hover:bg-[#0C2F30] transition-colors disabled:opacity-50"
               >
-                {uploading ? 'Uploading...' : 'Upload for screening'}
+                {uploading ? 'Processing...' : 'Upload for screening'}
               </button>
               <button
                 onClick={() => { setFile(null); setPreview(null) }}
