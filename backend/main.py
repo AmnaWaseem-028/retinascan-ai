@@ -1,17 +1,26 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
 import torch
 import timm
 import cv2
 import numpy as np
 from PIL import Image
 import io
-import base64
+import os
+from dotenv import load_dotenv
+from supabase import create_client
 import torchvision.transforms as transforms
 from pytorch_grad_cam import GradCAM
 from pytorch_grad_cam.utils.image import show_cam_on_image
 from pytorch_grad_cam.utils.model_targets import ClassifierOutputTarget
 
+load_dotenv()
+
 app = FastAPI()
+
+supabase_url = os.environ.get("SUPABASE_URL")
+supabase_key = os.environ.get("SUPABASE_SECRET_KEY")
+supabase = create_client(supabase_url, supabase_key)
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -28,6 +37,11 @@ transform = transforms.Compose([
 ])
 
 grade_labels = {0: 'No DR', 1: 'Mild', 2: 'Moderate', 3: 'Severe', 4: 'Proliferative'}
+
+
+class ScreeningRequest(BaseModel):
+    screening_id: str
+    image_path: str
 
 
 def crop_image_from_gray(img, tol=7):
@@ -67,20 +81,22 @@ def health_check():
     return {"status": "ok", "model_loaded": True}
 
 
-@app.post("/grade")
-async def grade_image(file: UploadFile = File(...)):
-    contents = await file.read()
-    pil_image = Image.open(io.BytesIO(contents)).convert('RGB')
+@app.post("/process-screening")
+async def process_screening(request: ScreeningRequest):
+    file_bytes = supabase.storage.from_("fundus-images").download(request.image_path)
+    pil_image = Image.open(io.BytesIO(file_bytes)).convert('RGB')
     img_rgb = np.array(pil_image)
 
     gray = cv2.cvtColor(img_rgb, cv2.COLOR_RGB2GRAY)
     issues = check_quality(gray)
     if issues:
+        supabase.table("screenings").update({
+            "report_text": "Quality check failed: " + ", ".join(issues)
+        }).eq("id", request.screening_id).execute()
         raise HTTPException(status_code=400, detail={"quality_issues": issues})
 
     processed = ben_graham_preprocess(img_rgb)
     processed_norm = processed.astype(np.float32) / 255.0
-
     input_tensor = transform(processed).unsqueeze(0).to(device)
 
     with torch.no_grad():
@@ -98,11 +114,24 @@ async def grade_image(file: UploadFile = File(...)):
     heatmap_pil = Image.fromarray(heatmap_vis)
     buffer = io.BytesIO()
     heatmap_pil.save(buffer, format="PNG")
-    heatmap_base64 = base64.b64encode(buffer.getvalue()).decode('utf-8')
+    heatmap_bytes = buffer.getvalue()
+
+    heatmap_path = f"{request.screening_id}.png"
+    supabase.storage.from_("heatmaps").upload(
+        heatmap_path, heatmap_bytes,
+        {"content-type": "image/png", "x-upsert": "true"}
+    )
+    heatmap_url = supabase.storage.from_("heatmaps").get_public_url(heatmap_path)
+
+    supabase.table("screenings").update({
+        "grade": grade,
+        "confidence": round(confidence_score, 4),
+        "heatmap_url": heatmap_url
+    }).eq("id", request.screening_id).execute()
 
     return {
         "grade": grade,
         "grade_label": grade_labels[grade],
         "confidence": round(confidence_score, 4),
-        "heatmap_base64": heatmap_base64
+        "heatmap_url": heatmap_url
     }
