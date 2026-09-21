@@ -90,14 +90,14 @@ function Admin() {
           <p className="text-sm text-[#5F5E5A]">No screenings in the system yet.</p>
         </div>
       ) : (
-        <div className="bg-white rounded-xl border border-[#D3D1C7] overflow-hidden">
-          <table className="w-full text-sm">
+        <div className="bg-white rounded-xl border border-[#D3D1C7] overflow-x-auto">
+          <table className="w-full text-sm min-w-[600px]">
             <thead>
               <tr className="border-b border-[#D3D1C7] text-left">
-                <th className="px-5 py-3 font-medium text-[#5F5E5A]">User ID</th>
-                <th className="px-5 py-3 font-medium text-[#5F5E5A]">Date</th>
-                <th className="px-5 py-3 font-medium text-[#5F5E5A]">Grade</th>
-                <th className="px-5 py-3 font-medium text-[#5F5E5A]">Confidence</th>
+                <th className="px-5 py-3 font-medium text-[#5F5E5A] whitespace-nowrap">User ID</th>
+                <th className="px-5 py-3 font-medium text-[#5F5E5A] whitespace-nowrap">Date</th>
+                <th className="px-5 py-3 font-medium text-[#5F5E5A] whitespace-nowrap">Grade</th>
+                <th className="px-5 py-3 font-medium text-[#5F5E5A] whitespace-nowrap">Confidence</th>
               </tr>
             </thead>
             <tbody>
@@ -107,20 +107,20 @@ function Admin() {
                   onClick={() => navigate(`/result/${s.id}`)}
                   className="border-b border-[#D3D1C7] last:border-0 hover:bg-[#F7F5F1] cursor-pointer"
                 >
-                  <td className="px-5 py-3 text-[#1B2421] font-mono text-xs">{s.user_id.slice(0, 8)}...</td>
-                  <td className="px-5 py-3 text-[#1B2421]">{new Date(s.created_at).toLocaleDateString()}</td>
-                  <td className="px-5 py-3">
+                  <td className="px-5 py-3 text-[#1B2421] font-mono text-xs whitespace-nowrap">{s.user_id.slice(0, 8)}...</td>
+                  <td className="px-5 py-3 text-[#1B2421] whitespace-nowrap">{new Date(s.created_at).toLocaleDateString()}</td>
+                  <td className="px-5 py-3 whitespace-nowrap">
                     {s.grade !== null ? (
-                      <span className="px-2 py-1 rounded-full text-xs font-medium bg-[#E1F5EE] text-[#04342C]">
+                      <span className="px-2 py-1 rounded-full text-xs font-medium bg-[#E1F5EE] text-[#04342C] whitespace-nowrap">
                         {gradeLabels[s.grade] ?? s.grade}
                       </span>
                     ) : (
-                      <span className="px-2 py-1 rounded-full text-xs font-medium bg-[#FAEEDA] text-[#633806]">
+                      <span className="px-2 py-1 rounded-full text-xs font-medium bg-[#FAEEDA] text-[#633806] whitespace-nowrap">
                         Processing
                       </span>
                     )}
                   </td>
-                  <td className="px-5 py-3 text-[#1B2421]">
+                  <td className="px-5 py-3 text-[#1B2421] whitespace-nowrap">
                     {s.confidence !== null ? `${Math.round(s.confidence * 100)}%` : '—'}
                   </td>
                 </tr>

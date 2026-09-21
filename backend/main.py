@@ -101,7 +101,7 @@ Write a short, clear, reassuring but honest 3-4 sentence report explaining what 
             model="openai/gpt-oss-120b",
             messages=[{"role": "user", "content": prompt}],
             temperature=0.5,
-            max_tokens=200,
+            max_tokens=400,
         )
         return response.choices[0].message.content
     except Exception as e:

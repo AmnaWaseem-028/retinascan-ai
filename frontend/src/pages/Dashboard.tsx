@@ -60,7 +60,7 @@ function Dashboard() {
       <h1 className="text-2xl font-semibold text-[#1B2421] mb-1">Screening history</h1>
       <p className="text-[#5F5E5A] text-sm mb-6">All your past diabetic retinopathy screenings.</p>
 
-      <div className="grid grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
         {stats.map((stat) => (
           <div key={stat.label} className="bg-white rounded-xl border border-[#D3D1C7] p-5 shadow-sm">
             <div className="flex items-center gap-2 mb-2">
@@ -83,14 +83,14 @@ function Dashboard() {
       )}
 
       {!loading && screenings.length > 0 && (
-        <div className="bg-white rounded-xl border border-[#D3D1C7] overflow-hidden shadow-sm">
-          <table className="w-full text-sm">
+        <div className="bg-white rounded-xl border border-[#D3D1C7] overflow-x-auto shadow-sm">
+          <table className="w-full text-sm min-w-[600px]">
             <thead>
               <tr className="border-b border-[#D3D1C7] text-left bg-[#F7F5F1]">
-                <th className="px-5 py-3 font-medium text-[#5F5E5A]">Date</th>
-                <th className="px-5 py-3 font-medium text-[#5F5E5A]">Grade</th>
-                <th className="px-5 py-3 font-medium text-[#5F5E5A]">Confidence</th>
-                <th className="px-5 py-3 font-medium text-[#5F5E5A]">Status</th>
+                <th className="px-5 py-3 font-medium text-[#5F5E5A] whitespace-nowrap">Date</th>
+                <th className="px-5 py-3 font-medium text-[#5F5E5A] whitespace-nowrap">Grade</th>
+                <th className="px-5 py-3 font-medium text-[#5F5E5A] whitespace-nowrap">Confidence</th>
+                <th className="px-5 py-3 font-medium text-[#5F5E5A] whitespace-nowrap">Status</th>
                 <th className="px-5 py-3"></th>
               </tr>
             </thead>
@@ -101,27 +101,27 @@ function Dashboard() {
                   onClick={() => navigate(`/result/${s.id}`)}
                   className="border-b border-[#D3D1C7] last:border-0 hover:bg-[#F7F5F1] cursor-pointer"
                 >
-                  <td className="px-5 py-3 text-[#1B2421]">
+                  <td className="px-5 py-3 text-[#1B2421] whitespace-nowrap">
                     {new Date(s.created_at).toLocaleDateString()}
                   </td>
-                  <td className="px-5 py-3">
+                  <td className="px-5 py-3 whitespace-nowrap">
                     {s.grade !== null ? (
-                      <span className="px-2 py-1 rounded-full text-xs font-medium bg-[#E1F5EE] text-[#04342C]">
+                      <span className="px-2 py-1 rounded-full text-xs font-medium bg-[#E1F5EE] text-[#04342C] whitespace-nowrap">
                         {gradeLabels[s.grade] ?? s.grade}
                       </span>
                     ) : (
-                      <span className="px-2 py-1 rounded-full text-xs font-medium bg-[#FAEEDA] text-[#633806]">
+                      <span className="px-2 py-1 rounded-full text-xs font-medium bg-[#FAEEDA] text-[#633806] whitespace-nowrap">
                         Processing
                       </span>
                     )}
                   </td>
-                  <td className="px-5 py-3 text-[#1B2421]">
+                  <td className="px-5 py-3 text-[#1B2421] whitespace-nowrap">
                     {s.confidence !== null ? `${Math.round(s.confidence * 100)}%` : '—'}
                   </td>
-                  <td className="px-5 py-3 text-[#5F5E5A]">
+                  <td className="px-5 py-3 text-[#5F5E5A] whitespace-nowrap">
                     {s.grade !== null ? 'Complete' : 'Pending'}
                   </td>
-                  <td className="px-5 py-3 text-right text-[#D3D1C7]">
+                  <td className="px-5 py-3 text-right text-[#D3D1C7] whitespace-nowrap">
                     <i className="ti ti-chevron-right"></i>
                   </td>
                 </tr>

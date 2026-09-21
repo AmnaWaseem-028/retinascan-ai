@@ -1,8 +1,10 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { supabase } from '../supabaseClient'
 import Logo from '../components/Logo'
 
 function Login() {
+  const navigate = useNavigate()
   const [isSignUp, setIsSignUp] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -15,11 +17,21 @@ function Login() {
     setLoading(true)
 
     if (isSignUp) {
-      const { error } = await supabase.auth.signUp({ email, password })
-      if (error) setError(error.message)
+      const { error, data } = await supabase.auth.signUp({ email, password })
+      if (error) {
+        setError(error.message)
+      } else if (data.session) {
+        navigate('/upload')
+      } else {
+        setError('Account created. Please check your email to confirm, then sign in.')
+      }
     } else {
       const { error } = await supabase.auth.signInWithPassword({ email, password })
-      if (error) setError(error.message)
+      if (error) {
+        setError(error.message)
+      } else {
+        navigate('/upload')
+      }
     }
     setLoading(false)
   }
@@ -50,7 +62,6 @@ function Login() {
           <span>Grad-CAM heatmaps</span>
         </div>
 
-        {/* Decorative rings, jaise fundus scan */}
         <div className="absolute -right-24 top-1/2 -translate-y-1/2 w-96 h-96 rounded-full border border-[#1A5654] opacity-60"></div>
         <div className="absolute -right-10 top-1/2 -translate-y-1/2 w-72 h-72 rounded-full border border-[#E8A33D] opacity-20"></div>
       </div>

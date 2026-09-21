@@ -58,6 +58,7 @@ function Result() {
     setLoading(false)
   }
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     fetchScreening()
   }, [id])
@@ -65,7 +66,11 @@ function Result() {
   const handleExportPDF = async () => {
     if (!contentRef.current) return
     setExporting(true)
-    const canvas = await html2canvas(contentRef.current, { backgroundColor: '#F7F5F1' })
+    const canvas = await html2canvas(contentRef.current, {
+      backgroundColor: '#F7F5F1',
+      useCORS: true,
+      allowTaint: false,
+    })
     const imgData = canvas.toDataURL('image/png')
     const pdf = new jsPDF('p', 'mm', 'a4')
     const pdfWidth = pdf.internal.pageSize.getWidth()
@@ -80,16 +85,14 @@ function Result() {
   if (!screening) return null
 
   return (
-    <div className="p-8 max-w-3xl" ref={contentRef}>
-      <button
-        onClick={() => navigate('/dashboard')}
-        className="text-sm text-[#5F5E5A] hover:text-[#0F3D3E] mb-4"
-      >
-        ← Back to dashboard
-      </button>
-
+    <div className="p-8 max-w-3xl">
       <div className="flex items-center justify-between mb-4">
-        <div></div>
+        <button
+          onClick={() => navigate('/dashboard')}
+          className="text-sm text-[#5F5E5A] hover:text-[#0F3D3E]"
+        >
+          ← Back to dashboard
+        </button>
         <button
           onClick={handleExportPDF}
           disabled={exporting}
@@ -99,58 +102,60 @@ function Result() {
         </button>
       </div>
 
-      <h1 className="text-2xl font-semibold text-[#1B2421] mb-1">Screening result</h1>
-      <p className="text-[#5F5E5A] text-sm mb-8">
-        {new Date(screening.created_at).toLocaleDateString()}
-      </p>
+      <div ref={contentRef}>
+        <h1 className="text-2xl font-semibold text-[#1B2421] mb-1">Screening result</h1>
+        <p className="text-[#5F5E5A] text-sm mb-8">
+          {new Date(screening.created_at).toLocaleDateString()}
+        </p>
 
-      <div className="grid grid-cols-2 gap-4 mb-6">
-        <div className="bg-white rounded-xl border border-[#D3D1C7] p-4">
-          <p className="text-xs font-medium text-[#5F5E5A] mb-2">Original image</p>
-          {imageUrl ? (
-            <img src={imageUrl} alt="Fundus scan" className="w-full rounded-lg" />
-          ) : (
-            <div className="h-48 flex items-center justify-center text-xs text-[#888780]">No image</div>
-          )}
-        </div>
-        <div className="bg-white rounded-xl border border-[#D3D1C7] p-4">
-          <p className="text-xs font-medium text-[#5F5E5A] mb-2">Grad-CAM heatmap</p>
-          {screening.heatmap_url ? (
-            <img src={screening.heatmap_url} alt="Heatmap" className="w-full rounded-lg" />
-          ) : (
-            <div className="h-48 flex items-center justify-center text-xs text-[#888780]">Not generated yet</div>
-          )}
-        </div>
-      </div>
-
-      <div className="bg-white rounded-xl border border-[#D3D1C7] p-6 mb-6">
-        <div className="flex items-center gap-4 mb-4">
-          <div>
-            <p className="text-xs font-medium text-[#5F5E5A] mb-1">Grade</p>
-            {screening.grade !== null ? (
-              <span className="px-3 py-1.5 rounded-full text-sm font-medium bg-[#E1F5EE] text-[#04342C]">
-                {gradeLabels[screening.grade] ?? screening.grade}
-              </span>
+        <div className="grid grid-cols-2 gap-4 mb-6">
+          <div className="bg-white rounded-xl border border-[#D3D1C7] p-4">
+            <p className="text-xs font-medium text-[#5F5E5A] mb-2">Original image</p>
+            {imageUrl ? (
+              <img src={imageUrl} alt="Fundus scan" crossOrigin="anonymous" className="w-full rounded-lg" />
             ) : (
-              <span className="px-3 py-1.5 rounded-full text-sm font-medium bg-[#FAEEDA] text-[#633806]">
-                Processing
-              </span>
+              <div className="h-48 flex items-center justify-center text-xs text-[#888780]">No image</div>
             )}
           </div>
-          <div>
-            <p className="text-xs font-medium text-[#5F5E5A] mb-1">Confidence</p>
-            <p className="text-sm text-[#1B2421]">
-              {screening.confidence !== null ? `${Math.round(screening.confidence * 100)}%` : '—'}
-            </p>
+          <div className="bg-white rounded-xl border border-[#D3D1C7] p-4">
+            <p className="text-xs font-medium text-[#5F5E5A] mb-2">Grad-CAM heatmap</p>
+            {screening.heatmap_url ? (
+              <img src={screening.heatmap_url} alt="Heatmap" crossOrigin="anonymous" className="w-full rounded-lg" />
+            ) : (
+              <div className="h-48 flex items-center justify-center text-xs text-[#888780]">Not generated yet</div>
+            )}
           </div>
         </div>
-      </div>
 
-      <div className="bg-white rounded-xl border border-[#D3D1C7] p-6">
-        <p className="text-xs font-medium text-[#5F5E5A] mb-2">AI-generated report</p>
-        <p className="text-sm text-[#1B2421] leading-relaxed">
-          {screening.report_text || 'Report will be available once processing is complete.'}
-        </p>
+        <div className="bg-white rounded-xl border border-[#D3D1C7] p-6 mb-6">
+          <div className="flex items-center gap-4 mb-4">
+            <div>
+              <p className="text-xs font-medium text-[#5F5E5A] mb-1">Grade</p>
+              {screening.grade !== null ? (
+                <span className="px-3 py-1.5 rounded-full text-sm font-medium bg-[#E1F5EE] text-[#04342C]">
+                  {gradeLabels[screening.grade] ?? screening.grade}
+                </span>
+              ) : (
+                <span className="px-3 py-1.5 rounded-full text-sm font-medium bg-[#FAEEDA] text-[#633806]">
+                  Processing
+                </span>
+              )}
+            </div>
+            <div>
+              <p className="text-xs font-medium text-[#5F5E5A] mb-1">Confidence</p>
+              <p className="text-sm text-[#1B2421]">
+                {screening.confidence !== null ? `${Math.round(screening.confidence * 100)}%` : '—'}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl border border-[#D3D1C7] p-6">
+          <p className="text-xs font-medium text-[#5F5E5A] mb-2">AI-generated report</p>
+          <p className="text-sm text-[#1B2421] leading-relaxed">
+            {screening.report_text || 'Report will be available once processing is complete.'}
+          </p>
+        </div>
       </div>
     </div>
   )
