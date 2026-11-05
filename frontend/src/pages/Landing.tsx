@@ -1,8 +1,35 @@
 import { useNavigate } from 'react-router-dom'
+import { useAuth } from '../context/useAuth'
 import Logo from '../components/Logo'
 
 function Landing() {
   const navigate = useNavigate()
+  const { user, role } = useAuth()
+
+  const displayName =
+    user?.user_metadata?.full_name ||
+    user?.user_metadata?.name ||
+    user?.user_metadata?.username ||
+    user?.email ||
+    'User'
+
+  const getInitials = (nameOrEmail: string): string => {
+    const clean = nameOrEmail.includes('@') ? nameOrEmail.split('@')[0] : nameOrEmail
+    const parts = clean.split(/[\s._-]+/).filter(Boolean)
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[1][0]).toUpperCase()
+    }
+    if (parts.length === 1 && parts[0].length >= 2) {
+      const matches = parts[0].match(/[A-Z]/g)
+      if (matches && matches.length >= 1) {
+        return (parts[0][0] + matches[0]).toUpperCase()
+      }
+      return parts[0].slice(0, 2).toUpperCase()
+    }
+    return (clean[0] || 'U').toUpperCase()
+  }
+
+  const initials = user ? getInitials(displayName) : 'U'
 
   const features = [
     { icon: 'ti-scan', title: '5-stage DR grading', desc: 'AI-powered classification from no DR to proliferative stage, trained on the APTOS dataset.' },
@@ -27,16 +54,45 @@ function Landing() {
     <div className="min-h-screen bg-[#F7F5F1]">
       {/* Nav */}
       <nav className="flex items-center justify-between px-8 py-5 max-w-6xl mx-auto">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigate('/')}>
           <Logo size={30} />
           <span className="font-semibold text-lg text-[#0F3D3E]">RetinaScan AI</span>
         </div>
-        <button
-          onClick={() => navigate('/login')}
-          className="px-4 py-2 rounded-lg bg-[#0F3D3E] text-white text-sm font-medium hover:bg-[#0C2F30] transition-colors"
-        >
-          Sign in
-        </button>
+
+        {user ? (
+          <button
+            onClick={() => navigate('/dashboard')}
+            className="flex items-center gap-3 px-3.5 py-2 rounded-xl border border-[#D3D1C7] bg-white hover:border-[#0F3D3E] hover:shadow-sm transition-all text-left group"
+          >
+            {/* Avatar circle with initials */}
+            <div className="w-8 h-8 rounded-lg bg-[#0F3D3E] text-white flex items-center justify-center text-xs font-bold tracking-wider group-hover:bg-[#1A5654] transition-colors shadow-xs shrink-0">
+              {initials}
+            </div>
+
+            {/* Name/Email and Role */}
+            <div className="flex flex-col min-w-0">
+              <span className="text-xs font-semibold text-[#1B2421] max-w-[150px] sm:max-w-[200px] truncate leading-tight" title={displayName}>
+                {displayName}
+              </span>
+              <span className="text-[10px] font-medium text-[#5F5E5A] uppercase tracking-wider flex items-center gap-1.5 mt-0.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#E8A33D]"></span>
+                {role === 'admin' ? 'Administrator' : 'Clinician'}
+              </span>
+            </div>
+
+            <div className="hidden sm:flex items-center gap-1 pl-3 ml-1 border-l border-[#E5E3DC] text-xs font-medium text-[#0F3D3E] shrink-0">
+              <span>Dashboard</span>
+              <i className="ti ti-arrow-right text-[12px]"></i>
+            </div>
+          </button>
+        ) : (
+          <button
+            onClick={() => navigate('/login')}
+            className="px-4 py-2 rounded-lg bg-[#0F3D3E] text-white text-sm font-medium hover:bg-[#0C2F30] transition-colors"
+          >
+            Sign in
+          </button>
+        )}
       </nav>
 
       {/* Hero */}
@@ -52,10 +108,11 @@ function Landing() {
           Upload a fundus image and get an AI-graded diabetic retinopathy result — complete with a visual explanation and a plain-language report — in seconds.
         </p>
         <button
-          onClick={() => navigate('/login')}
-          className="px-6 py-3 rounded-lg bg-[#0F3D3E] text-white text-sm font-semibold hover:bg-[#0C2F30] transition-colors shadow-sm"
+          onClick={() => navigate(user ? '/upload' : '/login')}
+          className="px-6 py-3 rounded-lg bg-[#0F3D3E] text-white text-sm font-semibold hover:bg-[#0C2F30] transition-colors shadow-sm inline-flex items-center gap-2"
         >
-          Start screening
+          <span>{user ? 'Upload new screening' : 'Start screening'}</span>
+          <i className="ti ti-arrow-right text-xs"></i>
         </button>
 
         {/* Stats strip */}
@@ -77,7 +134,7 @@ function Landing() {
             Every part of the pipeline is designed around clinical trust — from the model to the explanation.
           </p>
         </div>
-        <div className="grid grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {features.map((f) => (
             <div key={f.title} className="group bg-white rounded-xl border border-[#D3D1C7] p-6 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
               <div className="relative w-12 h-12 rounded-xl bg-[#0F3D3E] flex items-center justify-center mb-5">
@@ -100,7 +157,7 @@ function Landing() {
               Four steps from fundus image to a graded, explainable result.
             </p>
           </div>
-          <div className="grid grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
             {steps.map((step) => (
               <div key={step.number} className="group bg-[#12474A] rounded-xl p-6 border border-[#1A5654] hover:border-[#E8A33D] transition-colors duration-200">
                 <div className="flex items-start gap-4">
@@ -128,10 +185,10 @@ function Landing() {
           Create an account and get your first AI-assisted diabetic retinopathy grade in under a minute.
         </p>
         <button
-          onClick={() => navigate('/login')}
+          onClick={() => navigate(user ? '/dashboard' : '/login')}
           className="px-6 py-3 rounded-lg bg-[#0F3D3E] text-white text-sm font-semibold hover:bg-[#0C2F30] transition-colors shadow-sm"
         >
-          Get started
+          {user ? 'Go to Dashboard' : 'Get started'}
         </button>
       </section>
 

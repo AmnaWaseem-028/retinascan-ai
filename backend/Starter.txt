@@ -1,0 +1,7 @@
+This file is for running the application 
+0. cd backend
+1. python -m venv venv
+2. .\venv\Scripts\activate
+3. pip install fastapi uvicorn pydantic python-dotenv torch torchvision timm opencv-python pillow supabase groq "grad-cam>=1.5.0"
+4. uvicorn main:app --reload --host 127.0.0.1 --port 8000
+
