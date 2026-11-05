@@ -1,10 +1,13 @@
+import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/useAuth'
 import Logo from '../components/Logo'
 
 function Landing() {
   const navigate = useNavigate()
-  const { user, role } = useAuth()
+  const { user, role, isAdmin, signOut } = useAuth()
+  const [menuOpen, setMenuOpen] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
 
   const displayName =
     user?.user_metadata?.full_name ||
@@ -30,6 +33,29 @@ function Landing() {
   }
 
   const initials = user ? getInitials(displayName) : 'U'
+
+  // Close dropdown on click outside or Escape
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setMenuOpen(false)
+      }
+    }
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        setMenuOpen(false)
+      }
+    }
+
+    if (menuOpen) {
+      document.addEventListener('mousedown', handleClickOutside)
+      document.addEventListener('keydown', handleKeyDown)
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+      document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [menuOpen])
 
   const features = [
     { icon: 'ti-scan', title: '5-stage DR grading', desc: 'AI-powered classification from no DR to proliferative stage, trained on the APTOS dataset.' },
@@ -60,31 +86,91 @@ function Landing() {
         </div>
 
         {user ? (
-          <button
-            onClick={() => navigate('/dashboard')}
-            className="flex items-center gap-3 px-3.5 py-2 rounded-xl border border-[#D3D1C7] bg-white hover:border-[#0F3D3E] hover:shadow-sm transition-all text-left group"
-          >
-            {/* Avatar circle with initials */}
-            <div className="w-8 h-8 rounded-lg bg-[#0F3D3E] text-white flex items-center justify-center text-xs font-bold tracking-wider group-hover:bg-[#1A5654] transition-colors shadow-xs shrink-0">
+          <div className="relative" ref={menuRef}>
+            {/* Circular Profile Avatar Button */}
+            <button
+              onClick={() => setMenuOpen((prev) => !prev)}
+              aria-expanded={menuOpen}
+              aria-label="User profile menu"
+              className="w-10 h-10 rounded-full bg-[#0F3D3E] text-white flex items-center justify-center text-xs font-bold tracking-wider hover:bg-[#1A5654] focus:outline-none focus:ring-2 focus:ring-[#0F3D3E] focus:ring-offset-2 transition-all shadow-sm cursor-pointer select-none"
+            >
               {initials}
-            </div>
+            </button>
 
-            {/* Name/Email and Role */}
-            <div className="flex flex-col min-w-0">
-              <span className="text-xs font-semibold text-[#1B2421] max-w-[150px] sm:max-w-[200px] truncate leading-tight" title={displayName}>
-                {displayName}
-              </span>
-              <span className="text-[10px] font-medium text-[#5F5E5A] uppercase tracking-wider flex items-center gap-1.5 mt-0.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#E8A33D]"></span>
-                {role === 'admin' ? 'Administrator' : 'Clinician'}
-              </span>
-            </div>
+            {/* Dropdown Menu */}
+            {menuOpen && (
+              <div className="absolute right-0 mt-2.5 w-64 bg-white rounded-xl border border-[#D3D1C7] shadow-xl py-1.5 z-50">
+                {/* User Identity Header */}
+                <div className="px-4 py-3 border-b border-[#E5E3DC] bg-[#FAF8F5] rounded-t-xl">
+                  <p className="text-xs font-semibold text-[#1B2421] truncate" title={displayName}>
+                    {displayName}
+                  </p>
+                  <p className="text-[11px] text-[#5F5E5A] truncate mt-0.5" title={user.email || ''}>
+                    {user.email}
+                  </p>
+                  <div className="flex items-center gap-1.5 mt-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#E8A33D]"></span>
+                    <span className="text-[10px] font-semibold text-[#0F3D3E] uppercase tracking-wider">
+                      {role === 'admin' ? 'Administrator' : 'Clinician'}
+                    </span>
+                  </div>
+                </div>
 
-            <div className="hidden sm:flex items-center gap-1 pl-3 ml-1 border-l border-[#E5E3DC] text-xs font-medium text-[#0F3D3E] shrink-0">
-              <span>Dashboard</span>
-              <i className="ti ti-arrow-right text-[12px]"></i>
-            </div>
-          </button>
+                {/* Navigation Options */}
+                <div className="py-1">
+                  <button
+                    onClick={() => {
+                      setMenuOpen(false)
+                      navigate('/dashboard')
+                    }}
+                    className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-[#1B2421] hover:bg-[#F7F5F1] hover:text-[#0F3D3E] transition-colors text-left"
+                  >
+                    <i className="ti ti-layout-dashboard text-[#5F5E5A] text-base"></i>
+                    <span>Dashboard</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setMenuOpen(false)
+                      navigate('/upload')
+                    }}
+                    className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-[#1B2421] hover:bg-[#F7F5F1] hover:text-[#0F3D3E] transition-colors text-left"
+                  >
+                    <i className="ti ti-upload text-[#5F5E5A] text-base"></i>
+                    <span>Upload screening</span>
+                  </button>
+
+                  {isAdmin && (
+                    <button
+                      onClick={() => {
+                        setMenuOpen(false)
+                        navigate('/admin')
+                      }}
+                      className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-[#1B2421] hover:bg-[#F7F5F1] hover:text-[#0F3D3E] transition-colors text-left"
+                    >
+                      <i className="ti ti-shield-lock text-[#5F5E5A] text-base"></i>
+                      <span>Admin panel</span>
+                    </button>
+                  )}
+                </div>
+
+                <div className="border-t border-[#E5E3DC] my-1"></div>
+
+                {/* Logout Option */}
+                <button
+                  onClick={async () => {
+                    setMenuOpen(false)
+                    await signOut()
+                    navigate('/login', { replace: true })
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-[#C1544C] hover:bg-[#FAECE7] transition-colors text-left font-medium"
+                >
+                  <i className="ti ti-logout text-base"></i>
+                  <span>Log out</span>
+                </button>
+              </div>
+            )}
+          </div>
         ) : (
           <button
             onClick={() => navigate('/login')}
