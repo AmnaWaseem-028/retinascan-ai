@@ -32,35 +32,46 @@ function Result() {
   const contentRef = useRef<HTMLDivElement>(null)
   const [exporting, setExporting] = useState(false)
 
-  const fetchScreening = async () => {
-    setLoading(true)
-    const { data, error } = await supabase
-      .from('screenings')
-      .select('*')
-      .eq('id', id)
-      .single()
-
-    if (error) {
-      setError(error.message)
-      setLoading(false)
-      return
-    }
-
-    setScreening(data)
-
-    if (data.image_url) {
-      const { data: signedData } = await supabase.storage
-        .from('fundus-images')
-        .createSignedUrl(data.image_url, 3600)
-      if (signedData) setImageUrl(signedData.signedUrl)
-    }
-
-    setLoading(false)
-  }
-
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
-    fetchScreening()
+    let isCancelled = false
+
+    const loadScreening = async () => {
+      if (!id) return
+      setError('')
+
+      const { data, error: queryError } = await supabase
+        .from('screenings')
+        .select('*')
+        .eq('id', id)
+        .single()
+
+      if (isCancelled) return
+
+      if (queryError) {
+        setError(queryError.message)
+        setLoading(false)
+        return
+      }
+
+      setScreening(data)
+
+      if (data?.image_url) {
+        const { data: signedData } = await supabase.storage
+          .from('fundus-images')
+          .createSignedUrl(data.image_url, 3600)
+        if (!isCancelled && signedData) {
+          setImageUrl(signedData.signedUrl)
+        }
+      }
+
+      setLoading(false)
+    }
+
+    loadScreening()
+
+    return () => {
+      isCancelled = true
+    }
   }, [id])
 
   const handleExportPDF = async () => {

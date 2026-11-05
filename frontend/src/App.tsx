@@ -1,27 +1,55 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
-import Login from './pages/Login'
+import { AuthProvider } from './context/AuthContext'
+import ProtectedRoute from './components/ProtectedRoute'
+import PublicRoute from './components/PublicRoute'
 import Layout from './components/Layout'
+import Login from './pages/Login'
+import Landing from './pages/Landing'
 import Upload from './pages/Upload'
 import Dashboard from './pages/Dashboard'
 import Result from './pages/Result'
 import Admin from './pages/Admin'
-import Landing from './pages/Landing'
 
 function App() {
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<Landing />} />
-        <Route path="/login" element={<Login />} />
-        <Route element={<Layout />}>
-          <Route path="/upload" element={<Upload />} />
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/result/:id" element={<Result />} />
-          <Route path="/admin" element={<Admin />} />
-        </Route>
-        <Route path="*" element={<Navigate to="/" />} />
-      </Routes>
-    </BrowserRouter>
+    <AuthProvider>
+      <BrowserRouter>
+        <Routes>
+          {/* Public Landing Page */}
+          <Route path="/" element={<Landing />} />
+
+          {/* Public Login/Signup Page - Redirects if already authenticated */}
+          <Route
+            path="/login"
+            element={
+              <PublicRoute>
+                <Login />
+              </PublicRoute>
+            }
+          />
+
+          {/* Authenticated Protected Shell */}
+          <Route element={<ProtectedRoute />}>
+            <Route element={<Layout />}>
+              <Route path="/upload" element={<Upload />} />
+              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/result/:id" element={<Result />} />
+              <Route
+                path="/admin"
+                element={
+                  <ProtectedRoute requireAdmin>
+                    <Admin />
+                  </ProtectedRoute>
+                }
+              />
+            </Route>
+          </Route>
+
+          {/* Catch-all redirect */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </BrowserRouter>
+    </AuthProvider>
   )
 }
 

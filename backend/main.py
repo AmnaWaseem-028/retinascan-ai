@@ -16,13 +16,15 @@ from pytorch_grad_cam import GradCAM
 from pytorch_grad_cam.utils.image import show_cam_on_image
 from pytorch_grad_cam.utils.model_targets import ClassifierOutputTarget
 
-load_dotenv()
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+env_path = os.path.join(BASE_DIR, ".env")
+load_dotenv(dotenv_path=env_path, override=True)
 
 app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -30,14 +32,22 @@ app.add_middleware(
 
 supabase_url = os.environ.get("SUPABASE_URL")
 supabase_key = os.environ.get("SUPABASE_SECRET_KEY")
+
+if not supabase_key or supabase_key == "your-secret-key":
+    print("⚠️  [RetinaScan AI] WARNING: SUPABASE_SECRET_KEY is not configured or using placeholder value.")
+else:
+    print("✅ [RetinaScan AI] Supabase credentials successfully loaded.")
+
 supabase = create_client(supabase_url, supabase_key)
 
 groq_client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
+model_path = os.path.join(BASE_DIR, 'model', 'best_model.pth')
+
 model = timm.create_model('efficientnet_b0', pretrained=False, num_classes=5)
-model.load_state_dict(torch.load('model/best_model.pth', map_location=device))
+model.load_state_dict(torch.load(model_path, map_location=device))
 model.to(device)
 model.eval()
 
@@ -115,7 +125,10 @@ Write a short, clear, reassuring but honest 3-4 sentence report explaining what 
         }
         return fallback_reports.get(grade, "Please consult an eye specialist to review your screening result.")
 
-
+@app.get("/")
+def home():
+    return {"status": 200, "msg": "server is running on port 8000"}
+    
 @app.get("/health")
 def health_check():
     return {"status": "ok", "model_loaded": True}
@@ -123,7 +136,14 @@ def health_check():
 
 @app.post("/process-screening")
 async def process_screening(request: ScreeningRequest):
-    file_bytes = supabase.storage.from_("fundus-images").download(request.image_path)
+    try:
+        file_bytes = supabase.storage.from_("fundus-images").download(request.image_path)
+    except Exception as e:
+        print(f"❌ Storage Download Error: {e}")
+        raise HTTPException(
+            status_code=502,
+            detail=f"Failed to fetch image from storage ({request.image_path}): {str(e)}"
+        )
     pil_image = Image.open(io.BytesIO(file_bytes)).convert('RGB')
     img_rgb = np.array(pil_image)
 

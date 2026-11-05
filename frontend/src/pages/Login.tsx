@@ -1,36 +1,49 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { supabase } from '../supabaseClient'
+import { useNavigate, useLocation } from 'react-router-dom'
+import { useAuth } from '../context/useAuth'
 import Logo from '../components/Logo'
 
 function Login() {
   const navigate = useNavigate()
+  const location = useLocation()
+  const { signIn, signUp } = useAuth()
+
   const [isSignUp, setIsSignUp] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
+  const [info, setInfo] = useState('')
   const [loading, setLoading] = useState(false)
+
+  // Redirect to requested page after login, defaulting to /upload
+  const from = (location.state as { from?: Location })?.from?.pathname || '/upload'
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
+    setInfo('')
     setLoading(true)
 
     if (isSignUp) {
-      const { error, data } = await supabase.auth.signUp({ email, password })
-      if (error) {
-        setError(error.message)
-      } else if (data.session) {
-        navigate('/upload')
+      const { error: signUpError, session } = await signUp(email, password)
+      if (signUpError) {
+        setError(signUpError.message)
+      } else if (session) {
+        navigate(from, { replace: true })
       } else {
-        setError('Account created. Please check your email to confirm, then sign in.')
+        setInfo('Account created! Please check your email to confirm your address, then sign in.')
+        setIsSignUp(false)
       }
     } else {
-      const { error } = await supabase.auth.signInWithPassword({ email, password })
-      if (error) {
-        setError(error.message)
+      const { error: signInError } = await signIn(email, password)
+      if (signInError) {
+        if (signInError.message.toLowerCase().includes('invalid login credentials')) {
+          setError('Invalid email or password. Please verify your credentials or create an account.')
+        } else {
+          setError(signInError.message)
+        }
       } else {
-        navigate('/upload')
+        navigate(from, { replace: true })
       }
     }
     setLoading(false)
@@ -111,6 +124,10 @@ function Login() {
               <p className="text-sm text-[#C1544C] bg-[#FAECE7] px-3 py-2 rounded-lg">{error}</p>
             )}
 
+            {info && (
+              <p className="text-sm text-[#04342C] bg-[#E1F5EE] px-3 py-2 rounded-lg">{info}</p>
+            )}
+
             <button
               type="submit"
               disabled={loading}
@@ -123,7 +140,7 @@ function Login() {
           <p className="text-sm text-[#5F5E5A] mt-6 text-center">
             {isSignUp ? 'Already have an account?' : "Don't have an account?"}{' '}
             <button
-              onClick={() => { setIsSignUp(!isSignUp); setError('') }}
+              onClick={() => { setIsSignUp(!isSignUp); setError(''); setInfo('') }}
               className="text-[#0F3D3E] font-medium hover:underline"
             >
               {isSignUp ? 'Sign in' : 'Sign up'}

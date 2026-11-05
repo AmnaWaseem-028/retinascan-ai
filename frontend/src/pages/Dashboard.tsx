@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../supabaseClient'
+import { useAuth } from '../context/useAuth'
 
 interface Screening {
   id: string
@@ -20,28 +21,39 @@ const gradeLabels: Record<number, string> = {
 
 function Dashboard() {
   const navigate = useNavigate()
+  const { user } = useAuth()
   const [screenings, setScreenings] = useState<Screening[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
-  const fetchScreenings = async () => {
-    setLoading(true)
-    const { data, error } = await supabase
-      .from('screenings')
-      .select('id, image_url, grade, confidence, created_at')
-      .order('created_at', { ascending: false })
-
-    if (error) {
-      setError(error.message)
-    } else {
-      setScreenings(data || [])
-    }
-    setLoading(false)
-  }
-
   useEffect(() => {
-    fetchScreenings()
-  }, [])
+    let isCancelled = false
+
+    const loadScreenings = async () => {
+      if (!user) return
+
+      const { data, error: queryError } = await supabase
+        .from('screenings')
+        .select('id, image_url, grade, confidence, created_at')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+
+      if (!isCancelled) {
+        if (queryError) {
+          setError(queryError.message)
+        } else {
+          setScreenings(data || [])
+        }
+        setLoading(false)
+      }
+    }
+
+    loadScreenings()
+
+    return () => {
+      isCancelled = true
+    }
+  }, [user])
 
   const totalCount = screenings.length
   const pendingCount = screenings.filter((s) => s.grade === null).length
@@ -57,8 +69,19 @@ function Dashboard() {
 
   return (
     <div className="p-8">
-      <h1 className="text-2xl font-semibold text-[#1B2421] mb-1">Screening history</h1>
-      <p className="text-[#5F5E5A] text-sm mb-6">All your past diabetic retinopathy screenings.</p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+        <div>
+          <h1 className="text-2xl font-semibold text-[#1B2421] mb-1">Screening history</h1>
+          <p className="text-[#5F5E5A] text-sm">All your past diabetic retinopathy screenings.</p>
+        </div>
+        <button
+          onClick={() => navigate('/upload')}
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#0F3D3E] text-white text-sm font-medium hover:bg-[#0C2F30] transition-colors self-start sm:self-auto shadow-sm"
+        >
+          <i className="ti ti-plus"></i>
+          New screening
+        </button>
+      </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
         {stats.map((stat) => (
@@ -72,13 +95,27 @@ function Dashboard() {
         ))}
       </div>
 
-      {loading && <p className="text-sm text-[#888780]">Loading...</p>}
-      {error && <p className="text-sm text-[#C1544C]">{error}</p>}
+      {loading && (
+        <div className="bg-white rounded-xl border border-[#D3D1C7] p-12 text-center shadow-sm">
+          <div className="w-8 h-8 border-3 border-[#0F3D3E]/20 border-t-[#0F3D3E] rounded-full animate-spin mx-auto mb-3"></div>
+          <p className="text-sm text-[#888780]">Loading clinical records...</p>
+        </div>
+      )}
+
+      {error && !loading && (
+        <p className="text-sm text-[#C1544C] bg-[#FAECE7] px-4 py-3 rounded-lg mb-6">{error}</p>
+      )}
 
       {!loading && screenings.length === 0 && (
         <div className="bg-white rounded-xl border border-[#D3D1C7] p-12 text-center shadow-sm">
           <i className="ti ti-photo-scan text-[#D3D1C7] block mx-auto mb-3" style={{ fontSize: '36px' }}></i>
-          <p className="text-sm text-[#5F5E5A]">No screenings yet. Upload a fundus image to get started.</p>
+          <p className="text-sm text-[#5F5E5A] mb-4">No screenings yet. Upload a fundus image to get started.</p>
+          <button
+            onClick={() => navigate('/upload')}
+            className="px-4 py-2 rounded-lg bg-[#0F3D3E] text-white text-sm font-medium hover:bg-[#0C2F30] transition-colors"
+          >
+            Upload first scan
+          </button>
         </div>
       )}
 
@@ -99,18 +136,18 @@ function Dashboard() {
                 <tr
                   key={s.id}
                   onClick={() => navigate(`/result/${s.id}`)}
-                  className="border-b border-[#D3D1C7] last:border-0 hover:bg-[#F7F5F1] cursor-pointer"
+                  className="border-b border-[#D3D1C7] last:border-0 hover:bg-[#F7F5F1] cursor-pointer transition-colors"
                 >
                   <td className="px-5 py-3 text-[#1B2421] whitespace-nowrap">
                     {new Date(s.created_at).toLocaleDateString()}
                   </td>
                   <td className="px-5 py-3 whitespace-nowrap">
                     {s.grade !== null ? (
-                      <span className="px-2 py-1 rounded-full text-xs font-medium bg-[#E1F5EE] text-[#04342C] whitespace-nowrap">
+                      <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-[#E1F5EE] text-[#04342C] whitespace-nowrap">
                         {gradeLabels[s.grade] ?? s.grade}
                       </span>
                     ) : (
-                      <span className="px-2 py-1 rounded-full text-xs font-medium bg-[#FAEEDA] text-[#633806] whitespace-nowrap">
+                      <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-[#FAEEDA] text-[#633806] whitespace-nowrap">
                         Processing
                       </span>
                     )}
