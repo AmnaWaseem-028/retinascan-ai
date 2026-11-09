@@ -1,5 +1,6 @@
 // ==============================================================================
 // Feature 1: Clinical Triage & Referral Urgency Type Definitions
+// Feature 2: Uncertainty Estimation & Auto-Flag Type Definitions
 // ==============================================================================
 
 export type UrgencyTier =
@@ -15,6 +16,8 @@ export type TriageStatus =
   | 'in_review'
   | 'referred'
   | 'completed'
+
+export type UncertaintyTier = 'LOW' | 'MEDIUM' | 'HIGH'
 
 export interface Screening {
   id: string
@@ -33,6 +36,11 @@ export interface Screening {
   triage_notes: string | null
   triaged_at: string | null
   triaged_by: string | null
+  // Feature 2: Uncertainty estimation and auto-flag
+  uncertainty_score: number | null
+  uncertainty_tier: UncertaintyTier | null
+  needs_review: boolean | null
+  review_reason: string | null
 }
 
 export interface UrgencyConfig {
@@ -161,6 +169,36 @@ export const STATUS_CONFIGS: Record<TriageStatus, { label: string; badgeBg: stri
     badgeBg: 'bg-[#E1F5EE]',
     badgeText: 'text-[#04342C]',
     icon: 'ti-check',
+  },
+}
+
+export const UNCERTAINTY_CONFIGS: Record<
+  UncertaintyTier,
+  { label: string; badgeBg: string; badgeText: string; badgeBorder: string; dotColor: string; description: string }
+> = {
+  LOW: {
+    label: 'Low uncertainty',
+    badgeBg: 'bg-[#DCFCE7]',
+    badgeText: 'text-[#166534]',
+    badgeBorder: 'border-[#BBF7D0]',
+    dotColor: 'bg-[#16A34A]',
+    description: 'Model is stable across image variations',
+  },
+  MEDIUM: {
+    label: 'Medium uncertainty',
+    badgeBg: 'bg-[#FEF9C3]',
+    badgeText: 'text-[#854D0E]',
+    badgeBorder: 'border-[#FDE047]',
+    dotColor: 'bg-[#CA8A04]',
+    description: 'Some variation across image variations',
+  },
+  HIGH: {
+    label: 'High uncertainty',
+    badgeBg: 'bg-[#FEE2E2]',
+    badgeText: 'text-[#991B1B]',
+    badgeBorder: 'border-[#FCA5A5]',
+    dotColor: 'bg-[#DC2626]',
+    description: 'Model is unsure, specialist should verify',
   },
 }
 
