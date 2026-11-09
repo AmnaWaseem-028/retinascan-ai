@@ -18,11 +18,14 @@ from pytorch_grad_cam import GradCAM
 from pytorch_grad_cam.utils.image import show_cam_on_image
 from pytorch_grad_cam.utils.model_targets import ClassifierOutputTarget
 
+# Feature 2: Uncertainty estimation (TTA + entropy)
+from uncertainty import run_tta_uncertainty
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 env_path = os.path.join(BASE_DIR, ".env")
 load_dotenv(dotenv_path=env_path, override=True)
 
-app = FastAPI(title="OcuTriage API", version="2.0.0")
+app = FastAPI(title="OcuTriage API", version="2.1.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -159,10 +162,17 @@ def check_quality(gray_img):
         issues.append("Image is too bright")
     return issues
 
-def generate_report(grade, grade_label, confidence):
+def generate_report(grade, grade_label, confidence, needs_review=False):
+    review_instruction = ""
+    if needs_review:
+        review_instruction = (
+            "Also mention gently that this screening has been marked for a "
+            "specialist to double-check, to confirm the finer details."
+        )
     prompt = f"""You are a medical assistant writing a plain-language diabetic retinopathy screening report for a patient.
 Grade: {grade} ({grade_label})
 Confidence: {round(confidence * 100)}%
+{review_instruction}
 Write a short, clear, reassuring but honest 3-4 sentence report explaining what this grade means and whether the patient should see a doctor. Do not use medical jargon. Do not give a diagnosis, only explain the screening result and recommend next steps."""
     try:
         response = groq_client.chat.completions.create(
@@ -224,12 +234,14 @@ async def process_screening(request: ScreeningRequest):
     processed_norm = processed.astype(np.float32) / 255.0
     input_tensor = transform(processed).unsqueeze(0).to(device)
 
-    with torch.no_grad():
-        outputs = model(input_tensor)
-        probs = torch.softmax(outputs, dim=1)
-        confidence, predicted = torch.max(probs, 1)
-        grade = predicted.item()
-        confidence_score = confidence.item()
+    # Feature 2: 8-pass Test-Time Augmentation + entropy uncertainty
+    tta = run_tta_uncertainty(model, transform, device, processed)
+    grade = tta["grade"]
+    confidence_score = tta["confidence"]
+    uncertainty_score = tta["uncertainty_score"]
+    uncertainty_tier = tta["uncertainty_tier"]
+    needs_review = tta["needs_review"]
+    review_reason = tta["review_reason"]
 
     cam = GradCAM(model=model, target_layers=target_layer)
     targets = [ClassifierOutputTarget(grade)]
@@ -248,8 +260,9 @@ async def process_screening(request: ScreeningRequest):
     )
     heatmap_url = supabase.storage.from_("heatmaps").get_public_url(heatmap_path)
 
-    report_text = generate_report(grade, grade_labels[grade], confidence_score)
+    report_text = generate_report(grade, grade_labels[grade], confidence_score, needs_review=needs_review)
     print("REPORT TEXT:", report_text)
+    print(f"UNCERTAINTY: score={uncertainty_score} tier={uncertainty_tier} needs_review={needs_review}")
 
     # Compute Feature 1 Triage parameters
     triage = compute_triage(grade=grade)
@@ -264,6 +277,10 @@ async def process_screening(request: ScreeningRequest):
         "referral_timeframe": triage["referral_timeframe"],
         "referral_action": triage["referral_action"],
         "triage_status": triage["triage_status"],
+        "uncertainty_score": uncertainty_score,
+        "uncertainty_tier": uncertainty_tier,
+        "needs_review": needs_review,
+        "review_reason": review_reason,
     }).eq("id", request.screening_id).execute()
 
     return {
@@ -277,6 +294,10 @@ async def process_screening(request: ScreeningRequest):
         "referral_timeframe": triage["referral_timeframe"],
         "referral_action": triage["referral_action"],
         "triage_status": triage["triage_status"],
+        "uncertainty_score": uncertainty_score,
+        "uncertainty_tier": uncertainty_tier,
+        "needs_review": needs_review,
+        "review_reason": review_reason,
     }
 
 # ==============================================================================
@@ -320,6 +341,8 @@ async def get_triage_worklist(
     status: Optional[str] = None,
     urgency_tier: Optional[str] = None,
     urgency_level: Optional[int] = None,
+    needs_review: Optional[bool] = None,
+    uncertainty_tier: Optional[str] = None,
     limit: int = 100
 ):
     try:
@@ -330,6 +353,10 @@ async def get_triage_worklist(
             query = query.eq("urgency_tier", urgency_tier)
         if urgency_level:
             query = query.eq("urgency_level", urgency_level)
+        if needs_review is not None:
+            query = query.eq("needs_review", needs_review)
+        if uncertainty_tier:
+            query = query.eq("uncertainty_tier", uncertainty_tier)
 
         res = query.order("urgency_level", desc=False).order("created_at", desc=True).limit(limit).execute()
         return {"count": len(res.data) if res.data else 0, "screenings": res.data or []}
