@@ -5,6 +5,7 @@ import { useAuth } from '../context/useAuth'
 import jsPDF from 'jspdf'
 import html2canvas from 'html2canvas-pro'
 import UrgencyBadge from '../components/UrgencyBadge'
+import { UncertaintyBadge, ReviewFlagBadge } from '../components/UncertaintyBadge'
 import {
   type Screening,
   type UrgencyTier,
@@ -259,6 +260,12 @@ function Result() {
 
           <div className="flex flex-col sm:items-end gap-1.5 shrink-0">
             <UrgencyBadge tier={tier} priority={screening.urgency_level} size="lg" />
+            {(screening.uncertainty_tier || screening.needs_review) && (
+              <div className="flex flex-wrap items-center gap-1.5 sm:justify-end">
+                <UncertaintyBadge tier={screening.uncertainty_tier} />
+                <ReviewFlagBadge needsReview={screening.needs_review} />
+              </div>
+            )}
             <div className="flex items-center gap-1.5 text-xs text-[#5F5E5A]">
               <span>Triage Status:</span>
               <span className={`px-2 py-0.5 rounded-full font-semibold text-[11px] ${statusConfig.badgeBg} ${statusConfig.badgeText}`}>
@@ -432,6 +439,35 @@ function Result() {
             )}
           </div>
         </div>
+
+        {/* Feature 2: Model Uncertainty & Specialist Review */}
+        {screening.uncertainty_tier && (
+          <div
+            className={`rounded-2xl border p-5 shadow-xs ${
+              screening.needs_review ? 'bg-[#FFF5F5] border-[#FCA5A5]' : 'bg-white border-[#D3D1C7]'
+            }`}
+          >
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div>
+                <h3 className="text-xs font-semibold text-[#5F5E5A] uppercase tracking-wider mb-1">
+                  Model Uncertainty
+                </h3>
+                <p className="text-xs text-[#5F5E5A] leading-relaxed">
+                  {screening.uncertainty_tier === 'LOW' &&
+                    'The model gave a stable answer across several variations of this image.'}
+                  {screening.uncertainty_tier === 'MEDIUM' &&
+                    'The model showed some variation across several versions of this image.'}
+                  {screening.uncertainty_tier === 'HIGH' &&
+                    'The model was not consistent across versions of this image. A specialist should verify this result.'}
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-1.5 shrink-0">
+                <UncertaintyBadge tier={screening.uncertainty_tier} />
+                <ReviewFlagBadge needsReview={screening.needs_review} />
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* AI Model Findings & Confidence */}
         <div className="bg-white rounded-2xl border border-[#D3D1C7] p-6 shadow-xs">
