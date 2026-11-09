@@ -5,7 +5,7 @@ import torch
 NUM_CLASSES = 5
 MAX_ENTROPY = math.log(NUM_CLASSES)
 
-# PROVISIONAL values. Validation set se chunne ke baad inhe replace karna hai.
+# PROVISIONAL values. choose_threshold.py ke result se replace karna hai.
 THRESHOLD_LOW = 0.35   # is se neeche = LOW
 THRESHOLD_HIGH = 0.60  # is se upar ya barabar = HIGH (specialist review flag)
 
@@ -13,19 +13,21 @@ THRESHOLD_HIGH = 0.60  # is se upar ya barabar = HIGH (specialist review flag)
 def _rotate(img, angle):
     h, w = img.shape[:2]
     m = cv2.getRotationMatrix2D((w / 2.0, h / 2.0), angle, 1.0)
+    # Kaale kinaare, jaise training ke RandomRotation mein the
     return cv2.warpAffine(img, m, (w, h), flags=cv2.INTER_LINEAR,
-                          borderMode=cv2.BORDER_REFLECT_101)
+                          borderMode=cv2.BORDER_CONSTANT, borderValue=(0, 0, 0))
 
 
 def _views(img):
+    """Sirf wahi augmentations jo training mein thin: horizontal flip aur rotation (max 15 degree)."""
     hflip = cv2.flip(img, 1)
     return [
         img,                      # 1 original
         hflip,                    # 2 horizontal flip
-        cv2.flip(img, 0),         # 3 vertical flip
-        cv2.flip(img, -1),        # 4 dono flips
-        _rotate(img, 10),         # 5 rotate +10
-        _rotate(img, -10),        # 6 rotate -10
+        _rotate(img, 10),         # 3 rotate +10
+        _rotate(img, -10),        # 4 rotate -10
+        _rotate(img, 5),          # 5 rotate +5
+        _rotate(img, -5),         # 6 rotate -5
         _rotate(hflip, 10),       # 7 hflip + rotate +10
         _rotate(hflip, -10),      # 8 hflip + rotate -10
     ]
