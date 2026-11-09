@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase } from '../supabaseClient'
 import { useAuth } from '../context/useAuth'
 import UrgencyBadge from '../components/UrgencyBadge'
+import { UncertaintyBadge, ReviewFlagBadge } from '../components/UncertaintyBadge'
 import {
   type Screening,
   type UrgencyTier,
@@ -40,6 +41,8 @@ export default function TriageWorklist() {
   const [selectedStatus, setSelectedStatus] = useState<string>('ALL')
   const [searchTerm, setSearchTerm] = useState('')
   const [sortBy, setSortBy] = useState<'priority' | 'date_desc' | 'date_asc'>('priority')
+  // Feature 2: show only cases flagged for specialist review
+  const [reviewOnly, setReviewOnly] = useState(false)
 
   // Clinician Note Modal State
   const [activeNoteModal, setActiveNoteModal] = useState<{
@@ -214,6 +217,11 @@ export default function TriageWorklist() {
           return false
         }
 
+        // Feature 2: needs specialist review filter
+        if (reviewOnly && !s.needs_review) {
+          return false
+        }
+
         // Search term (ID or Report Text or Date)
         if (searchTerm.trim()) {
           const term = searchTerm.toLowerCase()
@@ -237,7 +245,7 @@ export default function TriageWorklist() {
         }
         return new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
       })
-  }, [screenings, selectedUrgency, selectedStatus, searchTerm, sortBy])
+  }, [screenings, selectedUrgency, selectedStatus, searchTerm, sortBy, reviewOnly])
 
   // Summary Metrics
   const p1Count = screenings.filter((s) => s.urgency_tier === 'EMERGENT').length
@@ -246,6 +254,7 @@ export default function TriageWorklist() {
   const p3Count = screenings.filter((s) => s.urgency_level === 3).length
   const p4p5Count = screenings.filter((s) => s.urgency_level === 4 || s.urgency_level === 5).length
   const pendingCount = screenings.filter((s) => !s.triage_status || s.triage_status === 'pending_triage').length
+  const reviewCount = screenings.filter((s) => s.needs_review).length
 
   // Export to CSV (UTF-8 with BOM so Excel shows en-dashes and symbols correctly)
   const handleExportCSV = () => {
@@ -257,6 +266,8 @@ export default function TriageWorklist() {
       'Timeframe',
       'Grade',
       'Confidence',
+      'Uncertainty',
+      'Needs Specialist Review',
       'Triage Status',
       'Clinician Notes',
       'Recommended Action',
@@ -269,6 +280,8 @@ export default function TriageWorklist() {
       `"${s.referral_timeframe || 'N/A'}"`,
       `"${s.grade !== null ? GRADE_LABELS[s.grade] : 'Quality Reject'}"`,
       `"${s.confidence ? Math.round(s.confidence * 100) + '%' : 'N/A'}"`,
+      `"${s.uncertainty_tier || 'N/A'}"`,
+      `"${s.needs_review ? 'Yes' : 'No'}"`,
       `"${STATUS_CONFIGS[s.triage_status || 'pending_triage']?.label || s.triage_status}"`,
       `"${(s.triage_notes || '').replace(/"/g, '""')}"`,
       `"${(s.referral_action || '').replace(/"/g, '""')}"`,
@@ -479,6 +492,19 @@ export default function TriageWorklist() {
               {tab.label}
             </button>
           ))}
+
+          {/* Feature 2: Needs specialist review filter */}
+          <button
+            onClick={() => setReviewOnly((v) => !v)}
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors inline-flex items-center gap-1.5 ${
+              reviewOnly
+                ? 'bg-[#991B1B] text-white shadow-xs'
+                : 'bg-[#FEE2E2] text-[#991B1B] hover:bg-[#FECACA]'
+            }`}
+          >
+            <i className="ti ti-alert-triangle"></i>
+            Needs Review ({reviewCount})
+          </button>
         </div>
 
         {/* Controls: Search, Status, Sort */}
@@ -539,6 +565,7 @@ export default function TriageWorklist() {
               setSelectedUrgency('ALL')
               setSelectedStatus('ALL')
               setSearchTerm('')
+              setReviewOnly(false)
             }}
             className="px-4 py-2 rounded-lg border border-[#D3D1C7] text-xs font-medium text-[#1B2421] hover:bg-[#F7F5F1]"
           >
@@ -552,7 +579,7 @@ export default function TriageWorklist() {
               <tr className="border-b border-[#D3D1C7] bg-[#F7F5F1] text-[12px] font-semibold text-[#5F5E5A] uppercase tracking-wider">
                 <th className="px-4 py-3.5 whitespace-nowrap">Urgency Tier & Priority</th>
                 <th className="px-4 py-3.5 whitespace-nowrap">Screening / Date</th>
-                <th className="px-4 py-3.5 whitespace-nowrap">AI DR Grade</th>
+                <th className="px-4 py-3.5 whitespace-nowrap">AI DR Grade & Uncertainty</th>
                 <th className="px-4 py-3.5 whitespace-nowrap">Recommended Action & Window</th>
                 <th className="px-4 py-3.5 whitespace-nowrap">Triage Status</th>
                 <th className="px-4 py-3.5 whitespace-nowrap">Notes</th>
@@ -600,16 +627,24 @@ export default function TriageWorklist() {
                       </div>
                     </td>
 
-                    {/* Grade & Confidence */}
+                    {/* Grade, Confidence & Uncertainty */}
                     <td className="px-4 py-3.5 align-middle">
                       {s.grade !== null ? (
-                        <div className="flex items-center gap-2">
-                          <span className="font-semibold text-[#1B2421]">
-                            {GRADE_LABELS[s.grade]}
-                          </span>
-                          <span className="text-[11px] text-[#5F5E5A]">
-                            ({s.confidence ? `${Math.round(s.confidence * 100)}%` : '—'})
-                          </span>
+                        <div className="flex flex-col items-start gap-1.5">
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold text-[#1B2421]">
+                              {GRADE_LABELS[s.grade]}
+                            </span>
+                            <span className="text-[11px] text-[#5F5E5A]">
+                              ({s.confidence ? `${Math.round(s.confidence * 100)}%` : '—'})
+                            </span>
+                          </div>
+                          {(s.uncertainty_tier || s.needs_review) && (
+                            <div className="flex flex-col items-start gap-1">
+                              <UncertaintyBadge tier={s.uncertainty_tier} />
+                              <ReviewFlagBadge needsReview={s.needs_review} reason={s.review_reason} />
+                            </div>
+                          )}
                         </div>
                       ) : (
                         <span className="inline-flex items-center gap-1 text-[11px] font-medium text-[#92400E] bg-[#FEF3C7] px-2 py-0.5 rounded">
