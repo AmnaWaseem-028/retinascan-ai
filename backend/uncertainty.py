@@ -5,31 +5,18 @@ import torch
 NUM_CLASSES = 5
 MAX_ENTROPY = math.log(NUM_CLASSES)
 
-# PROVISIONAL values. choose_threshold.py ke result se replace karna hai.
-THRESHOLD_LOW = 0.35   # is se neeche = LOW
-THRESHOLD_HIGH = 0.60  # is se upar ya barabar = HIGH (specialist review flag)
-
-
-def _rotate(img, angle):
-    h, w = img.shape[:2]
-    m = cv2.getRotationMatrix2D((w / 2.0, h / 2.0), angle, 1.0)
-    # Kaale kinaare, jaise training ke RandomRotation mein the
-    return cv2.warpAffine(img, m, (w, h), flags=cv2.INTER_LINEAR,
-                          borderMode=cv2.BORDER_CONSTANT, borderValue=(0, 0, 0))
+# Valid set (366 images) par choose_threshold.py se chune gaye.
+THRESHOLD_LOW = 0.05   # is se neeche = LOW
+THRESHOLD_HIGH = 0.20  # is se upar ya barabar = HIGH (specialist review flag)
 
 
 def _views(img):
-    """Sirf wahi augmentations jo training mein thin: horizontal flip aur rotation (max 15 degree)."""
-    hflip = cv2.flip(img, 1)
+    """Sirf original aur horizontal flip.
+    Rotation views per-view test mein accuracy ghata rahe the (0.811 se ~0.74),
+    isliye hata diye gaye."""
     return [
-        img,                      # 1 original
-        hflip,                    # 2 horizontal flip
-        _rotate(img, 10),         # 3 rotate +10
-        _rotate(img, -10),        # 4 rotate -10
-        _rotate(img, 5),          # 5 rotate +5
-        _rotate(img, -5),         # 6 rotate -5
-        _rotate(hflip, 10),       # 7 hflip + rotate +10
-        _rotate(hflip, -10),      # 8 hflip + rotate -10
+        img,                  # 1 original
+        cv2.flip(img, 1),     # 2 horizontal flip
     ]
 
 
@@ -46,7 +33,7 @@ def run_tta_uncertainty(model, transform, device, processed_img):
     batch = torch.stack([transform(v) for v in _views(processed_img)]).to(device)
     model.eval()
     with torch.no_grad():
-        probs = torch.softmax(model(batch), dim=1)   # (8, 5)
+        probs = torch.softmax(model(batch), dim=1)   # (2, 5)
         mean_probs = probs.mean(dim=0)               # (5,)
 
     conf, pred = torch.max(mean_probs, dim=0)
@@ -56,7 +43,7 @@ def run_tta_uncertainty(model, transform, device, processed_img):
     tier = tier_from_score(score)
     needs_review = tier == "HIGH"
     reason = (
-        f"High model uncertainty across augmentations (score {round(score, 2)})."
+        f"High model uncertainty (score {round(score, 2)})."
         if needs_review else None
     )
 
