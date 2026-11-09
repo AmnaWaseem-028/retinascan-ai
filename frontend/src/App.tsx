@@ -7,6 +7,7 @@ import Login from './pages/Login'
 import Landing from './pages/Landing'
 import Upload from './pages/Upload'
 import Dashboard from './pages/Dashboard'
+import TriageWorklist from './pages/TriageWorklist'
 import Result from './pages/Result'
 import Admin from './pages/Admin'
 
@@ -33,6 +34,7 @@ function App() {
             <Route element={<Layout />}>
               <Route path="/upload" element={<Upload />} />
               <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/triage" element={<TriageWorklist />} />
               <Route path="/result/:id" element={<Result />} />
               <Route
                 path="/admin"
