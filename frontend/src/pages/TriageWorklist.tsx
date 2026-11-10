@@ -4,6 +4,8 @@ import { supabase } from '../supabaseClient'
 import { useAuth } from '../context/useAuth'
 import UrgencyBadge from '../components/UrgencyBadge'
 import { UncertaintyBadge, ReviewFlagBadge } from '../components/UncertaintyBadge'
+import EyeBadge from '../components/EyeBadge'
+import type { Eye, ScreeningWithEye } from '../types/patient'
 import {
   type Screening,
   type UrgencyTier,
@@ -14,12 +16,54 @@ import {
   deriveUrgency,
 } from '../types/triage'
 
+// Feature 3: har visit mein dono aankhon ke sabse naye graded scan lo.
+// Jis scan ka grade us visit ki worse eye se kam hai, uski urgency worse eye ke mutabiq uthao.
+function applyPatientLevel(list: ScreeningWithEye[]): {
+  list: ScreeningWithEye[]
+  raised: Record<string, { ownLevel: number; eye: Eye }>
+} {
+  const latest = new Map<string, ScreeningWithEye>()
+  for (const s of list) {
+    if (!s.visit_id || !s.eye || s.grade === null) continue
+    const key = `${s.visit_id}|${s.eye}`
+    const prev = latest.get(key)
+    if (!prev || new Date(s.created_at) > new Date(prev.created_at)) latest.set(key, s)
+  }
+
+  const worstByVisit = new Map<string, { grade: number; eye: Eye }>()
+  for (const s of latest.values()) {
+    const visitId = s.visit_id as string
+    const grade = s.grade as number
+    const cur = worstByVisit.get(visitId)
+    if (!cur || grade > cur.grade) worstByVisit.set(visitId, { grade, eye: s.eye as Eye })
+  }
+
+  const raised: Record<string, { ownLevel: number; eye: Eye }> = {}
+  const out = list.map((s) => {
+    if (!s.visit_id || s.grade === null) return s
+    const worst = worstByVisit.get(s.visit_id)
+    if (!worst || worst.grade <= s.grade) return s
+    const u = deriveUrgency(worst.grade)
+    raised[s.id] = { ownLevel: s.urgency_level ?? 99, eye: worst.eye }
+    return {
+      ...s,
+      urgency_tier: u.tier,
+      urgency_level: u.level,
+      referral_timeframe: u.timeframe,
+      referral_action: u.action,
+    }
+  })
+  return { list: out, raised }
+}
+
 export default function TriageWorklist() {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const { user } = useAuth()
 
-  const [screenings, setScreenings] = useState<Screening[]>([])
+  const [screenings, setScreenings] = useState<ScreeningWithEye[]>([])
+  const [patientCodes, setPatientCodes] = useState<Record<string, string>>({})
+  const [raised, setRaised] = useState<Record<string, { ownLevel: number; eye: Eye }>>({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [actionMessage, setActionMessage] = useState('')
@@ -88,7 +132,19 @@ export default function TriageWorklist() {
           }
         })
 
-        setScreenings(normalized)
+        // Feature 3: patient-level urgency (worse eye of the visit)
+        const result = applyPatientLevel(normalized as ScreeningWithEye[])
+        setScreenings(result.list)
+        setRaised(result.raised)
+
+        const { data: pts } = await supabase.from('patients').select('id, patient_code')
+        if (!isCancelled && pts) {
+          setPatientCodes(
+            Object.fromEntries(
+              (pts as { id: string; patient_code: string }[]).map((p) => [p.id, p.patient_code])
+            )
+          )
+        }
       } catch (err: unknown) {
         if (!isCancelled) {
           const msg = err instanceof Error ? err.message : 'Failed to load triage worklist'
@@ -260,6 +316,8 @@ export default function TriageWorklist() {
   const handleExportCSV = () => {
     const headers = [
       'Screening ID',
+      'Patient ID',
+      'Eye',
       'Date',
       'Urgency Tier',
       'Priority Level',
@@ -274,6 +332,8 @@ export default function TriageWorklist() {
     ]
     const rows = filteredWorklist.map((s) => [
       `"${s.id}"`,
+      `"${s.patient_id ? patientCodes[s.patient_id] || '' : ''}"`,
+      `"${s.eye || ''}"`,
       `"${new Date(s.created_at).toLocaleString()}"`,
       `"${s.urgency_tier || 'N/A'}"`,
       `"P${s.urgency_level || 'N/A'}"`,
@@ -608,6 +668,11 @@ export default function TriageWorklist() {
                         priority={s.urgency_level}
                         size="md"
                       />
+                      {raised[s.id] && (
+                        <p className="text-[10px] text-[#BE123C] font-medium mt-1">
+                          Raised by worse eye ({raised[s.id].eye}), was P{raised[s.id].ownLevel}
+                        </p>
+                      )}
                     </td>
 
                     {/* ID & Date */}
@@ -624,6 +689,18 @@ export default function TriageWorklist() {
                           {new Date(s.created_at).toLocaleDateString()} &middot;{' '}
                           {new Date(s.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </span>
+                        {s.patient_id && (
+                          <span className="flex items-center gap-1.5 mt-1">
+                            <EyeBadge eye={s.eye} />
+                            <span
+                              onClick={() => navigate(`/patients/${s.patient_id}`)}
+                              className="font-mono text-[11px] font-bold text-[#0F3D3E] hover:underline cursor-pointer"
+                              title="Open patient record"
+                            >
+                              {patientCodes[s.patient_id] ?? 'Patient'}
+                            </span>
+                          </span>
+                        )}
                       </div>
                     </td>
 

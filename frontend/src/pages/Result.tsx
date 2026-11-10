@@ -6,6 +6,8 @@ import jsPDF from 'jspdf'
 import html2canvas from 'html2canvas-pro'
 import UrgencyBadge from '../components/UrgencyBadge'
 import { UncertaintyBadge, ReviewFlagBadge } from '../components/UncertaintyBadge'
+import EyeBadge from '../components/EyeBadge'
+import type { ScreeningWithEye } from '../types/patient'
 import {
   type Screening,
   type UrgencyTier,
@@ -21,7 +23,8 @@ function Result() {
   const navigate = useNavigate()
   const { user } = useAuth()
 
-  const [screening, setScreening] = useState<Screening | null>(null)
+  const [screening, setScreening] = useState<ScreeningWithEye | null>(null)
+  const [patientCode, setPatientCode] = useState<string | null>(null)
   const [imageUrl, setImageUrl] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -69,6 +72,18 @@ function Result() {
 
       setScreening(normalizedScreening)
       setNotesInput(normalizedScreening.triage_notes || '')
+
+      // Feature 3: agar ye screening kisi patient se juri hai to uska code lao
+      if (data.patient_id) {
+        const { data: patientRow } = await supabase
+          .from('patients')
+          .select('patient_code')
+          .eq('id', data.patient_id)
+          .single()
+        if (!isCancelled && patientRow) {
+          setPatientCode((patientRow as { patient_code: string }).patient_code)
+        }
+      }
 
       if (data?.image_url) {
         const { data: signedData } = await supabase.storage
@@ -256,6 +271,17 @@ function Result() {
               Screened on {new Date(screening.created_at).toLocaleDateString(undefined, { dateStyle: 'full' })} at{' '}
               {new Date(screening.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
             </p>
+            {screening.patient_id && (
+              <div className="flex items-center gap-2 mt-2">
+                <EyeBadge eye={screening.eye} showName />
+                <button
+                  onClick={() => navigate(`/patients/${screening.patient_id}`)}
+                  className="text-[11px] font-semibold text-[#0F3D3E] hover:underline"
+                >
+                  Patient {patientCode ?? ''} →
+                </button>
+              </div>
+            )}
           </div>
 
           <div className="flex flex-col sm:items-end gap-1.5 shrink-0">
