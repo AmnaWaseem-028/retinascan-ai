@@ -39,4 +39,8 @@ CREATE POLICY "patients_owner_all" ON patients
 
 DROP POLICY IF EXISTS "visits_owner_all" ON visits;
 CREATE POLICY "visits_owner_all" ON visits
-    FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+    FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);-- Table privileges for the Data API roles (without these: "permission denied for table")
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.patients TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.visits TO authenticated;
+GRANT ALL ON TABLE public.patients TO service_role;
+GRANT ALL ON TABLE public.visits TO service_role;
