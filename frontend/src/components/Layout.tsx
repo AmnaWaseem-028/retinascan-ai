@@ -20,6 +20,7 @@ function Layout() {
     { to: '/upload', label: 'Upload screening', icon: 'ti-upload', show: true },
     { to: '/dashboard', label: 'Dashboard', icon: 'ti-layout-dashboard', show: true },
     { to: '/triage', label: 'Triage worklist', icon: 'ti-clipboard-heart', show: true },
+    { to: '/patients', label: 'Patients', icon: 'ti-users', show: true },
     { to: '/admin', label: 'Admin panel', icon: 'ti-shield-lock', show: isAdmin },
   ].filter((item) => item.show)
 
