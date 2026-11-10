@@ -8,6 +8,8 @@ import Landing from './pages/Landing'
 import Upload from './pages/Upload'
 import Dashboard from './pages/Dashboard'
 import TriageWorklist from './pages/TriageWorklist'
+import Patients from './pages/Patients'
+import PatientDetail from './pages/PatientDetail'
 import Result from './pages/Result'
 import Admin from './pages/Admin'
 
@@ -35,6 +37,8 @@ function App() {
               <Route path="/upload" element={<Upload />} />
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/triage" element={<TriageWorklist />} />
+              <Route path="/patients" element={<Patients />} />
+              <Route path="/patients/:id" element={<PatientDetail />} />
               <Route path="/result/:id" element={<Result />} />
               <Route
                 path="/admin"
