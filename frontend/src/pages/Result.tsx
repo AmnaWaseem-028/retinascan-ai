@@ -7,6 +7,8 @@ import html2canvas from 'html2canvas-pro'
 import UrgencyBadge from '../components/UrgencyBadge'
 import { UncertaintyBadge, ReviewFlagBadge } from '../components/UncertaintyBadge'
 import EyeBadge from '../components/EyeBadge'
+import ReviewPanel, { ReviewStatusBadge } from '../components/ReviewPanel'
+import type { Review } from '../types/review'
 import type { ScreeningWithEye } from '../types/patient'
 import {
   type Screening,
@@ -25,6 +27,7 @@ function Result() {
 
   const [screening, setScreening] = useState<ScreeningWithEye | null>(null)
   const [patientCode, setPatientCode] = useState<string | null>(null)
+  const [review, setReview] = useState<Review | null>(null)
   const [imageUrl, setImageUrl] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -83,6 +86,16 @@ function Result() {
         if (!isCancelled && patientRow) {
           setPatientCode((patientRow as { patient_code: string }).patient_code)
         }
+      }
+
+      // Feature 4: is screening ka clinician review (agar hai) lao
+      const { data: reviewRow } = await supabase
+        .from('reviews')
+        .select('*')
+        .eq('screening_id', data.id)
+        .maybeSingle()
+      if (!isCancelled && reviewRow) {
+        setReview(reviewRow as Review)
       }
 
       if (data?.image_url) {
@@ -286,6 +299,7 @@ function Result() {
 
           <div className="flex flex-col sm:items-end gap-1.5 shrink-0">
             <UrgencyBadge tier={tier} priority={screening.urgency_level} size="lg" />
+            <ReviewStatusBadge review={review} />
             {(screening.uncertainty_tier || screening.needs_review) && (
               <div className="flex flex-wrap items-center gap-1.5 sm:justify-end">
                 <UncertaintyBadge tier={screening.uncertainty_tier} />
@@ -420,6 +434,14 @@ function Result() {
             )}
           </div>
         </div>
+
+        {/* Feature 4: Clinician review and override */}
+        <ReviewPanel
+          screeningId={screening.id}
+          aiGrade={screening.grade}
+          review={review}
+          onSaved={setReview}
+        />
 
         {/* Fundus Image and Heatmap Analysis */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
