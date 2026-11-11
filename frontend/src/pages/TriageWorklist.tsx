@@ -5,6 +5,8 @@ import { useAuth } from '../context/useAuth'
 import UrgencyBadge from '../components/UrgencyBadge'
 import { UncertaintyBadge, ReviewFlagBadge } from '../components/UncertaintyBadge'
 import EyeBadge from '../components/EyeBadge'
+import { ReviewStatusBadge } from '../components/ReviewPanel'
+import type { Review } from '../types/review'
 import type { Eye, ScreeningWithEye } from '../types/patient'
 import {
   type Screening,
@@ -56,6 +58,8 @@ function applyPatientLevel(list: ScreeningWithEye[]): {
   return { list: out, raised }
 }
 
+type SortKey = 'priority' | 'review_queue' | 'date_desc' | 'date_asc'
+
 export default function TriageWorklist() {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -64,6 +68,8 @@ export default function TriageWorklist() {
   const [screenings, setScreenings] = useState<ScreeningWithEye[]>([])
   const [patientCodes, setPatientCodes] = useState<Record<string, string>>({})
   const [raised, setRaised] = useState<Record<string, { ownLevel: number; eye: Eye }>>({})
+  // Feature 4: screening_id -> clinician review
+  const [reviews, setReviews] = useState<Record<string, Review>>({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [actionMessage, setActionMessage] = useState('')
@@ -84,9 +90,11 @@ export default function TriageWorklist() {
   }
   const [selectedStatus, setSelectedStatus] = useState<string>('ALL')
   const [searchTerm, setSearchTerm] = useState('')
-  const [sortBy, setSortBy] = useState<'priority' | 'date_desc' | 'date_asc'>('priority')
+  const [sortBy, setSortBy] = useState<SortKey>('priority')
   // Feature 2: show only cases flagged for specialist review
   const [reviewOnly, setReviewOnly] = useState(false)
+  // Feature 4: show only cases a clinician has not reviewed yet
+  const [awaitingOnly, setAwaitingOnly] = useState(false)
 
   // Clinician Note Modal State
   const [activeNoteModal, setActiveNoteModal] = useState<{
@@ -144,6 +152,12 @@ export default function TriageWorklist() {
               (pts as { id: string; patient_code: string }[]).map((p) => [p.id, p.patient_code])
             )
           )
+        }
+
+        // Feature 4: saare clinician reviews lao (agar ye fail ho to worklist phir bhi chalti rahe)
+        const { data: revs } = await supabase.from('reviews').select('*')
+        if (!isCancelled && revs) {
+          setReviews(Object.fromEntries((revs as Review[]).map((r) => [r.screening_id, r])))
         }
       } catch (err: unknown) {
         if (!isCancelled) {
@@ -247,6 +261,9 @@ export default function TriageWorklist() {
     setActiveNoteModal(null)
   }
 
+  // Feature 4: review baaki hai? (graded ho aur review row na ho)
+  const isAwaitingReview = (s: ScreeningWithEye) => s.grade !== null && !reviews[s.id]
+
   // Filtered & Sorted Worklist
   const filteredWorklist = useMemo(() => {
     return screenings
@@ -278,6 +295,11 @@ export default function TriageWorklist() {
           return false
         }
 
+        // Feature 4: awaiting clinician review filter
+        if (awaitingOnly && !(s.grade !== null && !reviews[s.id])) {
+          return false
+        }
+
         // Search term (ID or Report Text or Date)
         if (searchTerm.trim()) {
           const term = searchTerm.toLowerCase()
@@ -290,18 +312,32 @@ export default function TriageWorklist() {
         return true
       })
       .sort((a, b) => {
-        if (sortBy === 'priority') {
+        const byPriorityThenDate = () => {
           const pA = a.urgency_level ?? 99
           const pB = b.urgency_level ?? 99
           if (pA !== pB) return pA - pB
           return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        }
+
+        if (sortBy === 'priority') {
+          return byPriorityThenDate()
+        }
+        if (sortBy === 'review_queue') {
+          // 1) review baaki wale pehle, 2) un mein uncertainty se flagged pehle, 3) phir urgency
+          const awaitA = a.grade !== null && !reviews[a.id] ? 0 : 1
+          const awaitB = b.grade !== null && !reviews[b.id] ? 0 : 1
+          if (awaitA !== awaitB) return awaitA - awaitB
+          const flagA = a.needs_review ? 0 : 1
+          const flagB = b.needs_review ? 0 : 1
+          if (flagA !== flagB) return flagA - flagB
+          return byPriorityThenDate()
         }
         if (sortBy === 'date_desc') {
           return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
         }
         return new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
       })
-  }, [screenings, selectedUrgency, selectedStatus, searchTerm, sortBy, reviewOnly])
+  }, [screenings, reviews, selectedUrgency, selectedStatus, searchTerm, sortBy, reviewOnly, awaitingOnly])
 
   // Summary Metrics
   const p1Count = screenings.filter((s) => s.urgency_tier === 'EMERGENT').length
@@ -311,6 +347,7 @@ export default function TriageWorklist() {
   const p4p5Count = screenings.filter((s) => s.urgency_level === 4 || s.urgency_level === 5).length
   const pendingCount = screenings.filter((s) => !s.triage_status || s.triage_status === 'pending_triage').length
   const reviewCount = screenings.filter((s) => s.needs_review).length
+  const awaitingCount = screenings.filter(isAwaitingReview).length
 
   // Export to CSV (UTF-8 with BOM so Excel shows en-dashes and symbols correctly)
   const handleExportCSV = () => {
@@ -326,6 +363,8 @@ export default function TriageWorklist() {
       'Confidence',
       'Uncertainty',
       'Needs Specialist Review',
+      'Clinician Review',
+      'Clinician Grade',
       'Triage Status',
       'Clinician Notes',
       'Recommended Action',
@@ -342,6 +381,8 @@ export default function TriageWorklist() {
       `"${s.confidence ? Math.round(s.confidence * 100) + '%' : 'N/A'}"`,
       `"${s.uncertainty_tier || 'N/A'}"`,
       `"${s.needs_review ? 'Yes' : 'No'}"`,
+      `"${reviews[s.id] ? 'Clinician verified' : 'AI preliminary'}"`,
+      `"${reviews[s.id] ? GRADE_LABELS[reviews[s.id].final_grade] : ''}"`,
       `"${STATUS_CONFIGS[s.triage_status || 'pending_triage']?.label || s.triage_status}"`,
       `"${(s.triage_notes || '').replace(/"/g, '""')}"`,
       `"${(s.referral_action || '').replace(/"/g, '""')}"`,
@@ -565,6 +606,19 @@ export default function TriageWorklist() {
             <i className="ti ti-alert-triangle"></i>
             Needs Review ({reviewCount})
           </button>
+
+          {/* Feature 4: Awaiting clinician review filter */}
+          <button
+            onClick={() => setAwaitingOnly((v) => !v)}
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors inline-flex items-center gap-1.5 ${
+              awaitingOnly
+                ? 'bg-[#92400E] text-white shadow-xs'
+                : 'bg-[#FEF3C7] text-[#92400E] hover:bg-[#FDE68A]'
+            }`}
+          >
+            <i className="ti ti-user-check"></i>
+            Awaiting Clinician Review ({awaitingCount})
+          </button>
         </div>
 
         {/* Controls: Search, Status, Sort */}
@@ -585,10 +639,11 @@ export default function TriageWorklist() {
           {/* Sort By Dropdown */}
           <select
             value={sortBy}
-            onChange={(e) => setSortBy(e.target.value as 'priority' | 'date_desc' | 'date_asc')}
+            onChange={(e) => setSortBy(e.target.value as SortKey)}
             className="px-3 py-1.5 rounded-lg border border-[#D3D1C7] text-xs font-medium text-[#1B2421] bg-white focus:outline-none focus:border-[#0F3D3E]"
           >
             <option value="priority">Sort: Highest Urgency (P1 → P5)</option>
+            <option value="review_queue">Sort: Review Queue (unreviewed, flagged first)</option>
             <option value="date_desc">Sort: Most Recent Date</option>
             <option value="date_asc">Sort: Oldest in Queue</option>
           </select>
@@ -626,6 +681,7 @@ export default function TriageWorklist() {
               setSelectedStatus('ALL')
               setSearchTerm('')
               setReviewOnly(false)
+              setAwaitingOnly(false)
             }}
             className="px-4 py-2 rounded-lg border border-[#D3D1C7] text-xs font-medium text-[#1B2421] hover:bg-[#F7F5F1]"
           >
@@ -653,6 +709,7 @@ export default function TriageWorklist() {
                 const status = (s.triage_status as TriageStatus) || 'pending_triage'
                 const statusConfig = STATUS_CONFIGS[status] || STATUS_CONFIGS.pending_triage
                 const isP1 = s.urgency_level === 1
+                const rev = reviews[s.id] || null
 
                 return (
                   <tr
@@ -704,7 +761,7 @@ export default function TriageWorklist() {
                       </div>
                     </td>
 
-                    {/* Grade, Confidence & Uncertainty */}
+                    {/* Grade, Confidence, Uncertainty & Clinician Review */}
                     <td className="px-4 py-3.5 align-middle">
                       {s.grade !== null ? (
                         <div className="flex flex-col items-start gap-1.5">
@@ -722,6 +779,19 @@ export default function TriageWorklist() {
                               <ReviewFlagBadge needsReview={s.needs_review} reason={s.review_reason} />
                             </div>
                           )}
+                          <div className="flex flex-col items-start gap-1">
+                            <ReviewStatusBadge review={rev} />
+                            {rev && (
+                              <span
+                                className={`text-[10px] font-medium ${
+                                  rev.agrees_with_ai ? 'text-[#0F6E56]' : 'text-[#BE123C]'
+                                }`}
+                              >
+                                Clinician: {GRADE_LABELS[rev.final_grade]}
+                                {rev.agrees_with_ai ? ' (agrees)' : ' (overrides AI)'}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       ) : (
                         <span className="inline-flex items-center gap-1 text-[11px] font-medium text-[#92400E] bg-[#FEF3C7] px-2 py-0.5 rounded">
@@ -809,7 +879,7 @@ export default function TriageWorklist() {
                         onClick={() => navigate(`/result/${s.id}`)}
                         className="px-3 py-1.5 rounded-lg border border-[#D3D1C7] text-xs font-medium text-[#1B2421] bg-white hover:bg-[#0F3D3E] hover:text-white hover:border-[#0F3D3E] transition-colors shadow-2xs inline-flex items-center gap-1"
                       >
-                        Review
+                        {rev ? 'Open' : 'Review'}
                         <i className="ti ti-arrow-right text-[11px]"></i>
                       </button>
                     </td>
