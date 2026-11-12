@@ -20,6 +20,7 @@ from pytorch_grad_cam.utils.model_targets import ClassifierOutputTarget
 
 # Feature 2: Uncertainty estimation (TTA + entropy)
 from uncertainty import run_tta_uncertainty
+from fundus_check import check_fundus
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 env_path = os.path.join(BASE_DIR, ".env")
@@ -214,6 +215,24 @@ async def process_screening(request: ScreeningRequest):
 
     pil_image = Image.open(io.BytesIO(file_bytes)).convert('RGB')
     img_rgb = np.array(pil_image)
+
+    # Feature 5: kya ye retina (fundus) ki photo hai? Quality check se pehle, RAW image par.
+    fundus = check_fundus(img_rgb)
+    if not fundus["is_fundus"]:
+        print("FUNDUS CHECK FAILED:", fundus["reasons"], fundus["features"])
+        triage = compute_triage(is_quality_fail=True)
+        supabase.table("screenings").update({
+            "report_text": "Not a retinal photograph. " + fundus["message"],
+            "urgency_tier": triage["urgency_tier"],
+            "urgency_level": triage["urgency_level"],
+            "referral_timeframe": triage["referral_timeframe"],
+            "referral_action": triage["referral_action"],
+            "triage_status": triage["triage_status"],
+        }).eq("id", request.screening_id).execute()
+        raise HTTPException(
+            status_code=400,
+            detail={"quality_issues": [fundus["message"].rstrip(".")], "triage": triage, "not_fundus": True},
+        )
 
     gray = cv2.cvtColor(img_rgb, cv2.COLOR_RGB2GRAY)
     issues = check_quality(gray)
