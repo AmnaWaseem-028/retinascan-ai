@@ -4,9 +4,9 @@ import numpy as np
 DARK_THRESH = 15
 # PROVISIONAL values. fundus_eval.py ke result se confirm ya replace karna hai.
 T = {
-    "min_corner_dark": 0.25,  # chaaron kono ke pixels mein se kam se kam itne kaale hon
+    "min_corner_dark": 0.60,  # chaaron kono ke pixels mein se kam se kam itne kaale hon
     "min_area_frac": 0.25,    # retina wala hissa poori image ka kam se kam itna ho
-    "min_fill": 0.60,         # retina ka shape apne dibbe (bounding box) ka itna hissa bhare (gol shape ~0.78)
+    "min_fill": 0.75,         # retina ka shape apne dibbe (bounding box) ka itna hissa bhare (gol shape ~0.78)
     "max_fill": 0.97,         # 1.0 ke qareeb matlab poora rectangle hai, gol nahi
     "min_r_ratio": 0.30,      # red ka hissa (R / (R+G+B)), retina laal-narangi hoti hai
     "max_b_ratio": 0.36,      # blue ka hissa, retina mein blue bahut kam hota hai

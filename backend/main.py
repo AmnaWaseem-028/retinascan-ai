@@ -21,6 +21,7 @@ from pytorch_grad_cam.utils.model_targets import ClassifierOutputTarget
 # Feature 2: Uncertainty estimation (TTA + entropy)
 from uncertainty import run_tta_uncertainty
 from fundus_check import check_fundus
+from image_quality import check_image_quality
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 env_path = os.path.join(BASE_DIR, ".env")
@@ -235,7 +236,7 @@ async def process_screening(request: ScreeningRequest):
         )
 
     gray = cv2.cvtColor(img_rgb, cv2.COLOR_RGB2GRAY)
-    issues = check_quality(gray)
+    issues = check_image_quality(img_rgb)  # Feature 5: retina ke andar, fixed size par
 
     if issues:
         triage = compute_triage(is_quality_fail=True)
