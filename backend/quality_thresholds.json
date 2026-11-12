@@ -1,0 +1,6 @@
+{
+  "min_blur": 7.73,
+  "min_brightness": 40.0,
+  "max_brightness": 230.0,
+  "note": "min_blur = 3.0 percentile of 366 APTOS test images (relative limit, not clinically validated)"
+}
